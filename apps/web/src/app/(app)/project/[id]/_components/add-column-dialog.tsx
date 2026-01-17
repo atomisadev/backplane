@@ -132,7 +132,7 @@ export function AddColumnDialog({
             <DialogTitle className="text-lg font-semibold tracking-tight">
               Add Column
             </DialogTitle>
-            <DialogDescription className="font-mono text-xs text-muted-foreground pt-1 flex items-center gap-2">
+            <DialogDescription className="text-xs text-muted-foreground pt-1 flex items-center gap-2">
               <span className="flex h-1.5 w-1.5 rounded-full bg-primary/50" />
               {targetTable?.schema}.{targetTable?.name}
             </DialogDescription>
@@ -149,14 +149,14 @@ export function AddColumnDialog({
             <div className="space-y-2">
               <Label
                 htmlFor="col-name"
-                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Column Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="col-name"
                 placeholder="e.g. is_active"
-                className="font-mono text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
+                className="text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
                 autoFocus
                 {...register("name")}
               />
@@ -174,7 +174,7 @@ export function AddColumnDialog({
                   needsLength ? "col-span-3" : "col-span-5",
                 )}
               >
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <Label className="text-xs font-medium text-muted-foreground">
                   Data Type <span className="text-destructive">*</span>
                 </Label>
 
@@ -183,20 +183,20 @@ export function AddColumnDialog({
                   name="type"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="font-mono text-xs h-9 bg-muted/20 border-border/60">
+                      <SelectTrigger className="text-xs h-9 bg-muted/20 border-border/60">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
                         {POSTGRES_TYPES.map((group) => (
                           <React.Fragment key={group.label}>
-                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
+                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/50">
                               {group.label}
                             </div>
                             {group.options.map((t) => (
                               <SelectItem
                                 key={t}
                                 value={t}
-                                className="font-mono text-xs pl-4"
+                                className="text-xs pl-4"
                               >
                                 {t}
                               </SelectItem>
@@ -217,11 +217,11 @@ export function AddColumnDialog({
 
               {needsLength && (
                 <div className="col-span-2 space-y-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <Label className="text-xs font-medium text-muted-foreground">
                     Length
                   </Label>
                   <Input
-                    className="font-mono text-sm h-9 bg-muted/20 border-border/60"
+                    className="text-sm h-9 bg-muted/20 border-border/60"
                     {...register("length")}
                   />
                   {errors.length && (
@@ -234,7 +234,7 @@ export function AddColumnDialog({
             </div>
 
             <div className="space-y-3 pt-2">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Label className="text-xs font-medium text-muted-foreground">
                 Constraints
               </Label>
 
@@ -275,14 +275,14 @@ export function AddColumnDialog({
             <div className="space-y-2">
               <Label
                 htmlFor="default"
-                className="text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                className="text-xs font-medium text-muted-foreground"
               >
                 Default Value
               </Label>
               <Input
                 id="default"
                 placeholder="e.g. 'active' or NOW()"
-                className="font-mono text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
+                className="text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
                 {...register("defaultValue")}
               />
             </div>

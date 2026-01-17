@@ -15,7 +15,6 @@ import {
   OnNodesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-
 import { Column, DbSchemaGraphData, Relationship, SchemaNode } from "./types";
 import { TableNode } from "./table-node";
 import { GraphToolbar } from "./toolbar";

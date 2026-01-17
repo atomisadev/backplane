@@ -4,7 +4,8 @@ import { api } from "@/lib/api";
 import { Node } from "@xyflow/react";
 
 export const useSaveLayout = (projectId: string) => {
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedLayoutRef = useRef<string>("");
 
   const mutation = useMutation({
     mutationFn: async (layout: Record<string, { x: number; y: number }>) => {
@@ -20,16 +21,28 @@ export const useSaveLayout = (projectId: string) => {
 
   const saveLayout = useCallback(
     (nodes: Node[]) => {
-      const layoutMap: Record<string, { x: number; y: number }> = {};
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
 
-      nodes.forEach((node) => {
-        layoutMap[node.id] = {
-          x: Math.round(node.position.x),
-          y: Math.round(node.position.y),
-        };
-      });
+      saveTimeoutRef.current = setTimeout(() => {
+        const layoutMap: Record<string, { x: number; y: number }> = {};
 
-      mutation.mutate(layoutMap);
+        nodes.forEach((node) => {
+          layoutMap[node.id] = {
+            x: Math.round(node.position.x),
+            y: Math.round(node.position.y),
+          };
+        });
+
+        const layoutString = JSON.stringify(layoutMap);
+        if (layoutString === lastSavedLayoutRef.current) {
+          return;
+        }
+
+        lastSavedLayoutRef.current = layoutString;
+        mutation.mutate(layoutMap);
+      }, 1000);
     },
     [mutation],
   );
