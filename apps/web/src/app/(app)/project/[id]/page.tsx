@@ -48,11 +48,12 @@ import {
 } from "./_components/add-column-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useApplySchemaChanges } from "@/hooks/use-schema";
 
 // --- Types ---
 
 export type PendingChange = {
-  type: "CREATE_COLUMN" | "CREATE_TABLE";
+  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
   schema: string;
   table: string;
   column: ColumnDefinition;
@@ -154,6 +155,8 @@ export default function ProjectView() {
     [],
   );
 
+  const mutateSchema = useApplySchemaChanges(id);
+
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
 
@@ -238,6 +241,15 @@ export default function ProjectView() {
     },
     [],
   );
+
+  const handlePublish = async () => {
+    const success = await mutateSchema.mutateAsync(pendingChanges);
+    if (!success) {
+      alert("Something went wrong.");
+    } else {
+      setPendingChanges([]);
+    }
+  };
 
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
@@ -396,7 +408,7 @@ export default function ProjectView() {
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
-                    onClick={() => alert("Publish logic coming soon...")}
+                    onClick={handlePublish}
                   >
                     <Save className="size-3.5" />
                     Publish Changes
@@ -424,14 +436,6 @@ export default function ProjectView() {
                   <Settings className="size-3.5 text-muted-foreground" />
                 </Button>
               </div>
-              <SidebarSeparator orientation="vertical" className="mx-1 h-4" />
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                <Database className="size-3.5" />
-                Introspect
-              </Button>
             </div>
           </header>
 

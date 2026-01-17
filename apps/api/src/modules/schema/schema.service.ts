@@ -1,8 +1,18 @@
 import { Knex } from "knex";
 import knex from "knex";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../db";
 import { decrypt } from "../../lib/crypto";
 import { NotFoundError, DatabaseError } from "../../errors";
+import { ChangesDefinition, ChangesDefinitionType } from "../../lib/types";
+import { introspectDB } from "../../introspect/introspect";
+import {
+  listSchemas,
+  listTables,
+  listColumns,
+  listPrimaryKeys,
+  listForeignKeys,
+} from "../../introspect/listFunctions";
 
 export const schemaService = {
   async getProjectConnection(userId: string, projectId: string) {
@@ -110,5 +120,154 @@ export const schemaService = {
       console.error("Failed to create column:", error);
       throw new DatabaseError("Failed to create column", error);
     }
+  },
+
+  async parseUpdates(
+    pg: Knex,
+    changes: ChangesDefinitionType,
+    projectId: string,
+  ) {
+    // Process all changes sequentially to ensure they complete
+    for (const { type, schema, column, table } of changes) {
+      if (type === "CREATE_COLUMN") {
+        try {
+          await pg.schema.withSchema(schema).table(table, (t) => {
+            const col = t.specificType(column.name, column.type);
+
+            if (!column.nullable) {
+              col.notNullable();
+            }
+
+            if (column.defaultValue) {
+              col.defaultTo(pg.raw(column.defaultValue));
+            }
+          });
+        } catch (error) {
+          console.error("Failed to create column:", error);
+          throw new DatabaseError("Failed to create column", error);
+        }
+      } else if (type === "CREATE_TABLE") {
+        try {
+          await pg.schema.withSchema(schema).createTable(table, (t) => {
+            const colBuilder = t.specificType(column.name, column.type);
+
+            if (!column.nullable) colBuilder.notNullable();
+            else colBuilder.nullable();
+
+            if (
+              column.defaultValue &&
+              String(column.defaultValue).trim() !== ""
+            ) {
+              const dv = String(column.defaultValue).trim();
+              const looksLikeExpression =
+                /[()]/.test(dv) ||
+                /\bnow\b|\bcurrent_timestamp\b|\bgen_random_uuid\b|\buuid_generate_v4\b/i.test(
+                  dv,
+                );
+
+              colBuilder.defaultTo(looksLikeExpression ? pg.raw(dv) : dv);
+            }
+
+            t.primary([column.name]);
+          });
+        } catch (error) {
+          console.error("Failed to create table:", error);
+          throw new DatabaseError("Failed to create table", error);
+        }
+      }
+    }
+
+    // After all mutations are complete, re-introspect the database and update the snapshot
+    const IGNORED_SCHEMAS = new Set([
+      "information_schema",
+      "pg_catalog",
+      "pg_toast",
+      "cron",
+      "auth",
+    ]);
+
+    try {
+      const allSchemas = await listSchemas(pg);
+
+      const schemas = allSchemas
+        .map((s) => s.schema_name)
+        .filter((name) => {
+          if (IGNORED_SCHEMAS.has(name)) return false;
+          if (name.startsWith("pg_toast")) return false;
+          if (name.startsWith("pg_temp")) return false;
+          return true;
+        });
+
+      const [tables, columns, pks, fks] = await Promise.all([
+        listTables(pg, schemas),
+        listColumns(pg, schemas),
+        listPrimaryKeys(pg, schemas),
+        listForeignKeys(pg, schemas),
+      ]);
+
+      const key = (s: string, t: string) => `${s}.${t}`;
+
+      const columnsByTable = new Map<string, any[]>();
+      for (const c of columns) {
+        const k = key(c.table_schema, c.table_name);
+        const arr = columnsByTable.get(k) ?? [];
+        arr.push({
+          name: c.column_name,
+          type: c.data_type,
+          udt: c.udt_name,
+          nullable: c.is_nullable === "YES",
+          default: c.column_default,
+          position: c.ordinal_position,
+        });
+        columnsByTable.set(k, arr);
+      }
+
+      const pkByTable = new Map<string, string[]>();
+      for (const pk of pks) {
+        const k = key(pk.table_schema, pk.table_name);
+        const arr = pkByTable.get(k) ?? [];
+        arr.push(pk.column_name);
+        pkByTable.set(k, arr);
+      }
+
+      const nodes = tables.map((t) => {
+        const k = key(t.table_schema, t.table_name);
+        return {
+          id: k,
+          schema: t.table_schema,
+          name: t.table_name,
+          type: t.table_type,
+          primaryKey: pkByTable.get(k) ?? [],
+          columns: columnsByTable.get(k) ?? [],
+        };
+      });
+
+      const edges = fks.map((fk) => ({
+        id: fk.fk_name,
+        source: `${fk.source_schema}.${fk.source_table}`,
+        sourceColumn: fk.source_column,
+        target: `${fk.target_schema}.${fk.target_table}`,
+        targetColumn: fk.target_column,
+        label: `${fk.source_column} → ${fk.target_column}`,
+      }));
+
+      const schemaSnapshot = {
+        schemas,
+        nodes,
+        edges,
+      } as unknown as Prisma.InputJsonValue;
+
+      // Update the schema snapshot in the database
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { schemaSnapshot },
+      });
+    } catch (error) {
+      console.error("Failed to update schema snapshot:", error);
+      // Don't throw here - the mutations succeeded, snapshot update failure shouldn't fail the whole operation
+      // but we should log it
+    }
+
+    return { success: true };
   },
 };
