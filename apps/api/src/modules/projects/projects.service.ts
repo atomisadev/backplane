@@ -19,6 +19,14 @@ interface CreateProjectInput {
   connectionUri: string;
 }
 
+const IGNORED_SCHEMAS = new Set([
+  "information_schema",
+  "pg_catalog",
+  "pg_toast",
+  "cron",
+  "auth",
+]);
+
 export const projectService = {
   async create(data: CreateProjectInput) {
     const encryptedUri = encrypt(data.connectionUri);
@@ -35,7 +43,16 @@ export const projectService = {
     await pg.raw("SELECT 1");
 
     try {
-      const schemas = (await listSchemas(pg)).map((s) => s.schema_name);
+      const allSchemas = await listSchemas(pg);
+
+      const schemas = allSchemas
+        .map((s) => s.schema_name)
+        .filter((name) => {
+          if (IGNORED_SCHEMAS.has(name)) return false;
+          if (name.startsWith("pg_toast")) return false;
+          if (name.startsWith("pg_temp")) return false;
+          return true;
+        });
 
       if (schemas.length === 0) {
         throw new DatabaseError(
