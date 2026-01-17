@@ -118,7 +118,9 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
           onClick={(e) => {
             e.stopPropagation();
             if (onAddColumn) {
-              onAddColumn(table.schema, table.name);
+              onAddColumn(table.schema, table.name, table.columns);
+            } else {
+              alert(`Add column to ${table.name}`);
             }
           }}
         >

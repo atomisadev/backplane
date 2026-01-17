@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { DbSchemaGraphData, Relationship, SchemaNode } from "./types";
+import { Column, DbSchemaGraphData, Relationship, SchemaNode } from "./types";
 import { TableNode } from "./table-node";
 import { GraphToolbar } from "./toolbar";
 import { performAutoLayout } from "./layout-engine";
@@ -24,6 +24,7 @@ import { PendingChange } from "@/app/(app)/project/[id]/page";
 import { useSaveLayout } from "@/app/(app)/project/[id]/_hooks/use-save-layout";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { ColumnDefinition } from "@/app/(app)/project/[id]/_components/add-column-dialog";
 
 const customStyles = `
   .react-flow__controls { display: none; }
@@ -37,8 +38,12 @@ const nodeTypes = {
 
 interface DatabaseSchemaGraphContentProps {
   data: DbSchemaGraphData;
-  onAddColumn?: (schema: string, table: string) => void;
   onViewIndexes?: (schema: string, table: string) => void;
+  onAddColumn?: (
+    schema: string,
+    table: string,
+    columns: ColumnDefinition[],
+  ) => void;
   currentChanges: PendingChange[];
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }
@@ -333,8 +338,12 @@ export function DatabaseSchemaGraph({
 }: {
   data: DbSchemaGraphData;
   currentChanges: PendingChange[];
-  onAddColumn?: (schema: string, table: string) => void;
   onViewIndexes?: (schema: string, table: string) => void;
+  onAddColumn?: (
+    schema: string,
+    table: string,
+    columns: ColumnDefinition[],
+  ) => void;
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }) {
   return (

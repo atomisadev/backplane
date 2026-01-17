@@ -1,6 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+
 import {
   Dialog,
   DialogContent,
@@ -20,9 +23,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSchemaMutation } from "../_hooks/use-schema-mutation";
-import { Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+import {
+  POSTGRES_TYPES,
+  NEEDS_LENGTH,
+  makeAddColumnSchema,
+  type AddColumnFormValues,
+} from "@/lib/schemas/addColumnSchema";
 
 export interface ColumnDefinition {
   name: string;
@@ -37,20 +46,11 @@ interface AddColumnDialogProps {
   targetTable: {
     schema: string;
     name: string;
+    columns: ColumnDefinition[];
   } | null;
+
   onAdd: (column: ColumnDefinition) => void;
 }
-
-const POSTGRES_TYPES = [
-  { label: "Text / String", options: ["VARCHAR", "TEXT", "CHAR"] },
-  {
-    label: "Number",
-    options: ["INTEGER", "BIGINT", "DECIMAL", "NUMERIC", "REAL"],
-  },
-  { label: "Boolean", options: ["BOOLEAN"] },
-  { label: "Date / Time", options: ["TIMESTAMP", "DATE", "TIME"] },
-  { label: "Advanced", options: ["UUID", "JSONB", "JSON"] },
-];
 
 export function AddColumnDialog({
   open,
@@ -58,52 +58,76 @@ export function AddColumnDialog({
   targetTable,
   onAdd,
 }: AddColumnDialogProps) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("VARCHAR");
-  const [length, setLength] = useState("255");
-  const [isNullable, setIsNullable] = useState(true);
-  const [defaultValue, setDefaultValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const existingColumns = targetTable?.columns.map((c) => c.name.toLowerCase());
+  const schema = useMemo(
+    () => makeAddColumnSchema(existingColumns ?? []),
+    [existingColumns],
+  );
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<AddColumnFormValues>({
+    resolver: zodResolver(schema),
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      type: "VARCHAR",
+      length: "255",
+      isNullable: true,
+      defaultValue: "",
+    },
+  });
 
   useEffect(() => {
     if (open) {
-      setName("");
-      setType("VARCHAR");
-      setLength("255");
-      setIsNullable(true);
-      setDefaultValue("");
-      setError(null);
+      reset({
+        name: "",
+        type: "VARCHAR",
+        length: "255",
+        isNullable: true,
+        defaultValue: "",
+      });
     }
-  }, [open]);
+  }, [open, reset]);
 
-  const needsLength = ["VARCHAR", "CHAR"].includes(type);
+  const selectedType = watch("type");
+  const needsLength = NEEDS_LENGTH.has(selectedType);
+  const isNullable = watch("isNullable");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name) {
-      setError("Column name is required");
-      return;
-    }
+  const onValid = (values: AddColumnFormValues) => {
+    let sqlType = values.type;
 
-    let sqlType = type;
-    if (needsLength && length) {
-      sqlType = `${type}(${length})`;
+    if (NEEDS_LENGTH.has(values.type)) {
+      sqlType = `${values.type}(${(values.length ?? "").trim()})`;
     }
 
     onAdd({
-      name,
+      name: values.name.trim(),
       type: sqlType,
-      nullable: isNullable,
-      defaultValue: defaultValue || undefined,
+      nullable: values.isNullable,
+      defaultValue: values.defaultValue?.trim()
+        ? values.defaultValue.trim()
+        : undefined,
     });
 
     onOpenChange(false);
   };
 
+  const topError =
+    errors.name?.message ||
+    errors.type?.message ||
+    errors.length?.message ||
+    undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[440px] gap-0 p-0 overflow-hidden border-border/60 shadow-2xl bg-background/95 backdrop-blur-xl">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader className="px-6 py-5 border-b border-border/40 bg-muted/5">
             <DialogTitle className="text-lg font-semibold tracking-tight">
               Add Column
@@ -115,10 +139,10 @@ export function AddColumnDialog({
           </DialogHeader>
 
           <div className="p-6 space-y-5">
-            {error && (
+            {topError && (
               <div className="rounded-md bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
                 <AlertCircle className="size-4 shrink-0" />
-                {error}
+                {topError}
               </div>
             )}
 
@@ -131,12 +155,16 @@ export function AddColumnDialog({
               </Label>
               <Input
                 id="col-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. is_active"
                 className="font-mono text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
                 autoFocus
+                {...register("name")}
               />
+              {errors.name && (
+                <p className="text-xs text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-5 gap-4">
@@ -149,29 +177,42 @@ export function AddColumnDialog({
                 <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Data Type <span className="text-destructive">*</span>
                 </Label>
-                <Select value={type} onValueChange={setType}>
-                  <SelectTrigger className="font-mono text-xs h-9 bg-muted/20 border-border/60">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {POSTGRES_TYPES.map((group) => (
-                      <React.Fragment key={group.label}>
-                        <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
-                          {group.label}
-                        </div>
-                        {group.options.map((t) => (
-                          <SelectItem
-                            key={t}
-                            value={t}
-                            className="font-mono text-xs pl-4"
-                          >
-                            {t}
-                          </SelectItem>
+
+                <Controller
+                  control={control}
+                  name="type"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="font-mono text-xs h-9 bg-muted/20 border-border/60">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {POSTGRES_TYPES.map((group) => (
+                          <React.Fragment key={group.label}>
+                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">
+                              {group.label}
+                            </div>
+                            {group.options.map((t) => (
+                              <SelectItem
+                                key={t}
+                                value={t}
+                                className="font-mono text-xs pl-4"
+                              >
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </React.Fragment>
                         ))}
-                      </React.Fragment>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+
+                {errors.type && (
+                  <p className="text-xs text-destructive">
+                    {errors.type.message}
+                  </p>
+                )}
               </div>
 
               {needsLength && (
@@ -180,10 +221,14 @@ export function AddColumnDialog({
                     Length
                   </Label>
                   <Input
-                    value={length}
-                    onChange={(e) => setLength(e.target.value)}
                     className="font-mono text-sm h-9 bg-muted/20 border-border/60"
+                    {...register("length")}
                   />
+                  {errors.length && (
+                    <p className="text-xs text-destructive">
+                      {errors.length.message}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -192,35 +237,41 @@ export function AddColumnDialog({
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Constraints
               </Label>
-              <div className="grid grid-cols-1 gap-3">
-                <div
-                  className={cn(
-                    "flex items-start space-x-3 rounded-lg border p-3 transition-colors",
-                    !isNullable
-                      ? "bg-primary/5 border-primary/20"
-                      : "bg-transparent border-border/60 hover:bg-muted/20",
+
+              <div
+                className={cn(
+                  "flex items-start space-x-3 rounded-lg border p-3 transition-colors",
+                  !isNullable
+                    ? "bg-primary/5 border-primary/20"
+                    : "bg-transparent border-border/60 hover:bg-muted/20",
+                )}
+              >
+                <Controller
+                  control={control}
+                  name="isNullable"
+                  render={({ field }) => (
+                    <Checkbox
+                      id="not-null"
+                      checked={!field.value}
+                      onCheckedChange={(c) => field.onChange(!c)}
+                      className="mt-0.5"
+                    />
                   )}
-                >
-                  <Checkbox
-                    id="not-null"
-                    checked={!isNullable}
-                    onCheckedChange={(c) => setIsNullable(!c)}
-                    className="mt-0.5"
-                  />
-                  <div className="grid gap-1 leading-none">
-                    <label
-                      htmlFor="not-null"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      NOT NULL
-                    </label>
-                    <p className="text-[10px] text-muted-foreground">
-                      Prevents NULL values from being stored.
-                    </p>
-                  </div>
+                />
+                <div className="grid gap-1 leading-none">
+                  <label
+                    htmlFor="not-null"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    NOT NULL
+                  </label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Prevents NULL values from being stored.
+                  </p>
                 </div>
               </div>
             </div>
+
             <div className="space-y-2">
               <Label
                 htmlFor="default"
@@ -230,10 +281,9 @@ export function AddColumnDialog({
               </Label>
               <Input
                 id="default"
-                value={defaultValue}
-                onChange={(e) => setDefaultValue(e.target.value)}
                 placeholder="e.g. 'active' or NOW()"
                 className="font-mono text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
+                {...register("defaultValue")}
               />
             </div>
           </div>
@@ -247,7 +297,12 @@ export function AddColumnDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" className="h-8 text-xs font-medium gap-2">
+
+            <Button
+              type="submit"
+              className="h-8 text-xs font-medium gap-2"
+              disabled={!isValid || isSubmitting}
+            >
               Add Column
             </Button>
           </DialogFooter>

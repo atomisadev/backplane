@@ -42,9 +42,11 @@ import {
 } from "./_components/add-column-dialog";
 import { ViewIndexesDialog } from "./_components/view-indexes-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useApplySchemaChanges } from "@/hooks/use-schema";
 
 export type PendingChange = {
-  type: "CREATE_COLUMN" | "CREATE_TABLE";
+  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
   schema: string;
   table: string;
   column: ColumnDefinition;
@@ -132,6 +134,7 @@ export default function ProjectView() {
   const [selectedTable, setSelectedTable] = useState<{
     schema: string;
     name: string;
+    columns: ColumnDefinition[];
   } | null>(null);
 
   const [isViewIndexesOpen, setIsViewIndexesOpen] = useState(false);
@@ -140,7 +143,13 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  // Optimistic State Layer
+  const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
+    `${id}.changes`,
+    [],
+  );
+
+  const mutateSchema = useApplySchemaChanges(id);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -224,10 +233,22 @@ export default function ProjectView() {
     [selectedTable],
   );
 
-  const handleAddColumnClick = useCallback((schema: string, table: string) => {
-    setSelectedTable({ schema, name: table });
-    setIsAddColumnOpen(true);
-  }, []);
+  const handleAddColumnClick = useCallback(
+    (schema: string, table: string, columns: ColumnDefinition[]) => {
+      setSelectedTable({ schema, name: table, columns });
+      setIsAddColumnOpen(true);
+    },
+    [],
+  );
+
+  const handlePublish = async () => {
+    const success = await mutateSchema.mutateAsync(pendingChanges);
+    if (!success) {
+      alert("Something went wrong.");
+    } else {
+      setPendingChanges([]);
+    }
+  };
 
   const handleViewIndexesClick = useCallback(
     (schema: string, table: string) => {
@@ -388,7 +409,7 @@ export default function ProjectView() {
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
-                    onClick={() => alert("Publish logic coming soon...")}
+                    onClick={handlePublish}
                   >
                     <Save className="size-3.5" />
                     Publish Changes
@@ -416,14 +437,6 @@ export default function ProjectView() {
                   <Settings className="size-3.5 text-muted-foreground" />
                 </Button>
               </div>
-              <SidebarSeparator orientation="vertical" className="mx-1 h-4" />
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
-              >
-                <Database className="size-3.5" />
-                Introspect
-              </Button>
             </div>
           </header>
 

@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { getAuthSession } from "../../auth";
 import { schemaService } from "./schema.service";
+import { ChangesDefinition } from "../../lib/types";
 
 export const schemaController = new Elysia({ prefix: "/schema" })
   .get(
@@ -86,6 +87,41 @@ export const schemaController = new Elysia({ prefix: "/schema" })
           nullable: t.Boolean(),
           defaultValue: t.Optional(t.String()),
         }),
+      }),
+    },
+  )
+  .post(
+    "/:projectId/",
+    async ({ request, params: { projectId }, body, set }) => {
+      const session = await getAuthSession(request.headers);
+      if (!session) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
+
+      const pg = await schemaService.getProjectConnection(
+        session.user.id,
+        projectId,
+      );
+
+      try {
+        console.log(body.changes);
+        await schemaService.parseUpdates(pg, body.changes, projectId);
+
+        return {
+          success: true,
+          message: "Updated database successfully",
+        };
+      } finally {
+        await pg.destroy();
+      }
+    },
+    {
+      params: t.Object({
+        projectId: t.String(),
+      }),
+      body: t.Object({
+        changes: ChangesDefinition,
       }),
     },
   );
