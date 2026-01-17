@@ -395,46 +395,55 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
     });
   }, [data.nodes, data.schemas]);
 
-  const initialEdges: Edge[] = useMemo(() => {
-    return data.edges.map((relationship) => ({
-      id: relationship.id,
-      source: relationship.source,
-      sourceHandle: relationship.sourceColumn,
-      target: relationship.target,
-      targetHandle: relationship.targetColumn,
-      type: "smoothstep",
-      animated: true,
-      label: showLabels ? relationship.label : undefined,
-      labelStyle: {
-        fill: "var(--muted-foreground)",
-        fontSize: 10,
-        fontWeight: 500,
-      },
-      labelBgStyle: {
-        fill: "var(--background)",
-        fillOpacity: 0.8,
-        stroke: "var(--border)",
-        strokeWidth: 1,
-      },
-      labelBgPadding: [4, 2],
-      labelBgBorderRadius: 4,
-      style: {
-        stroke: "var(--muted-foreground)",
-        strokeWidth: 1.5,
-        opacity: 0.6,
-        fill: "none",
-      },
-      markerEnd: {
-        type: "arrowclosed",
-        color: "var(--muted-foreground)",
-        width: 15,
-        height: 15,
-      },
-    }));
-  }, [data.edges, showLabels]);
+  const getEdges = useCallback(
+    (edgesData: Relationship[], show: boolean): Edge[] => {
+      return edgesData.map((relationship) => ({
+        id: relationship.id,
+        source: relationship.source,
+        sourceHandle: relationship.sourceColumn,
+        target: relationship.target,
+        targetHandle: relationship.targetColumn,
+        type: "smoothstep",
+        animated: true,
+        label: show ? relationship.label : undefined,
+        labelStyle: {
+          fill: "var(--muted-foreground)",
+          fontSize: 10,
+          fontWeight: 500,
+        },
+        labelBgStyle: {
+          fill: "var(--background)",
+          fillOpacity: 0.8,
+          stroke: "var(--border)",
+          strokeWidth: 1,
+        },
+        labelBgPadding: [4, 2],
+        labelBgBorderRadius: 4,
+        style: {
+          stroke: "var(--muted-foreground)",
+          strokeWidth: 1.5,
+          opacity: 0.6,
+          fill: "none",
+        },
+        markerEnd: {
+          type: "arrowclosed",
+          color: "var(--muted-foreground)",
+          width: 15,
+          height: 15,
+        },
+      }));
+    },
+    [],
+  );
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    getEdges(data.edges, showLabels),
+  );
+
+  React.useEffect(() => {
+    setEdges(getEdges(data.edges, showLabels));
+  }, [showLabels, data.edges, setEdges, getEdges]);
 
   const onConnect = useCallback(() => {}, []);
   const onAddNode = useCallback(() => {
