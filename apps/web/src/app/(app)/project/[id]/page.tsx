@@ -37,6 +37,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
 
 // --- Mock Data (Enriched for visual demo) ---
 const MOCK_SCHEMA_DATA = {
@@ -270,23 +271,34 @@ export default function ProjectView() {
   const { data: project, isLoading, error } = useProject(id);
   const [searchTerm, setSearchTerm] = useState("");
 
+  let schema_data: DbSchemaGraph | null = null;
+  if (project?.schemaSnapshot) {
+    schema_data = DbSchemaGraphSchema.parse(project.schemaSnapshot);
+  }
+
   const filteredNodes = useMemo(() => {
-    if (!searchTerm) return MOCK_SCHEMA_DATA.nodes;
-    return MOCK_SCHEMA_DATA.nodes.filter(
+    if (!schema_data) return [];
+    if (!searchTerm) return schema_data.nodes;
+    return schema_data.nodes.filter(
       (n) =>
         n.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         n.schema.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [searchTerm]);
+  }, [searchTerm, schema_data]);
 
   const nodesBySchema = useMemo(() => {
     const groups: Record<string, typeof filteredNodes> = {};
+    if (!filteredNodes.length) return [];
+
+    console.log("filteredNodes: ", filteredNodes);
+
     filteredNodes.forEach((node) => {
       if (!groups[node.schema]) groups[node.schema] = [];
       groups[node.schema].push(node);
     });
+
     return groups;
-  }, [filteredNodes]);
+  }, [filteredNodes, schema_data]);
 
   if (isLoading) {
     return (
@@ -444,7 +456,7 @@ export default function ProjectView() {
           {/* Graph Area */}
           <div className="flex-1 overflow-hidden relative bg-muted/5">
             <div className="absolute inset-0">
-              <DatabaseSchemaGraph data={MOCK_SCHEMA_DATA} />
+              {schema_data && <DatabaseSchemaGraph data={schema_data} />}
             </div>
           </div>
         </SidebarInset>

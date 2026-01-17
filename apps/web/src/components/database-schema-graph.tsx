@@ -17,6 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Key, GripHorizontal, Database } from "lucide-react";
+import { DbSchemaGraph } from "../lib/schemas/dbGraph";
 
 const customStyles = `
   .react-flow__controls {
@@ -87,7 +88,7 @@ interface DatabaseSchema {
 }
 
 interface DatabaseSchemaGraphProps {
-  data: DatabaseSchema;
+  data: DbSchemaGraph;
 }
 
 const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
