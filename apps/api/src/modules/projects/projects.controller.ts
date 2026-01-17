@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { getAuthSession } from "../../auth";
 import { projectService } from "./projects.service";
+import knex, { Knex } from "knex";
 
 const DbTypeEnum = t.Union([t.Literal("postgres"), t.Literal("mysql")]);
 

@@ -80,6 +80,8 @@ model Project {
   updatedAt     DateTime @updatedAt
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schemaSnapshot Json?    
+  graphLayout    Json?    
 
   @@map("project")
 }
