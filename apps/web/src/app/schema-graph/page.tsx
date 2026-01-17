@@ -580,19 +580,25 @@ const sampleSchemaData = {
 
 export default function SchemaGraphPage() {
   return (
-    <div className="w-full h-screen bg-gray-50">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Database Schema Visualization
-        </h1>
-        <p className="text-black-600 mb-6">
-          Interactive visualization of your database schema showing tables,
-          columns, and relationships.
-        </p>
-      </div>
+    <div className="flex min-h-screen w-full flex-col p-6 md:p-10 bg-background">
+      <div className="mx-auto w-full max-w-7xl space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Schema Visualization
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Interactive visualization of your database schema showing tables,
+              columns, and relationships.
+            </p>
+          </div>
+        </div>
 
-      <div className="h-[calc(100vh-120px)] w-full">
-        <DatabaseSchemaGraph data={sampleSchemaData} />
+        {/* Graph Content */}
+        <div className="h-[calc(100vh-200px)] w-full rounded-xl border bg-card shadow-sm">
+          <DatabaseSchemaGraph data={sampleSchemaData} />
+        </div>
       </div>
     </div>
   );

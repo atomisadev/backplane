@@ -183,24 +183,32 @@ export function SchemaGraphExample() {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gray-50">
-      {/* Header with controls */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Database Schema Visualizer
-          </h1>
+    <div className="flex min-h-screen w-full flex-col p-6 md:p-10 bg-background">
+      <div className="mx-auto w-full max-w-7xl space-y-8">
+        {/* Header with controls */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-4">
+              Database Schema Visualizer
+            </h1>
+            <p className="text-muted-foreground">
+              Load a demo schema or upload your own JSON file to get started.
+            </p>
+          </div>
+        </div>
 
+        {/* Controls */}
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <div className="flex flex-wrap gap-4 items-center">
             <button
               onClick={fetchSchemaData}
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? "Loading..." : "Load Demo Schema"}
             </button>
 
-            <label className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer">
+            <label className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer transition-colors">
               Upload JSON Schema
               <input
                 type="file"
@@ -213,7 +221,7 @@ export function SchemaGraphExample() {
             {schemaData && (
               <button
                 onClick={clearSchema}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
               >
                 Clear Schema
               </button>
@@ -221,48 +229,48 @@ export function SchemaGraphExample() {
           </div>
 
           {error && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
               Error: {error}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Main content area */}
-      <div className="flex-1 relative">
-        {!schemaData ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="text-gray-400 mb-4">
-                <svg
-                  className="mx-auto h-12 w-12"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 7v10c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7c0-2.21-1.79-4-4-4H8c-2.21 0-4 1.79-4 4z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="m9 12 2 2 4-4"
-                  />
-                </svg>
+        {/* Main content area */}
+        <div className="flex-1 relative">
+          {!schemaData ? (
+            <div className="flex min-h-[500px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/10 p-8 text-center animate-in fade-in-50">
+              <div className="text-muted-foreground mb-4">
+                <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+                  <svg
+                    className="size-6 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 7v10c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7c0-2.21-1.79-4-4-4H8c-2.21 0-4 1.79-4 4z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="m9 12 2 2 4-4"
+                    />
+                  </svg>
+                </div>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold mb-2 mt-4">
                 No Schema Loaded
               </h3>
-              <p className="text-gray-500 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Load a demo schema or upload your own JSON file to get started.
               </p>
-              <div className="space-y-2 text-sm text-gray-400">
+              <div className="space-y-2 text-sm text-muted-foreground">
                 <p>Expected JSON format:</p>
-                <pre className="text-left bg-gray-100 p-2 rounded text-xs max-w-md overflow-auto">
+                <pre className="text-left bg-muted p-2 rounded text-xs max-w-md overflow-auto">
                   {`{
   "schemas": ["schema1", "schema2"],
   "nodes": [{
@@ -285,39 +293,39 @@ export function SchemaGraphExample() {
                 </pre>
               </div>
             </div>
-          </div>
-        ) : (
-          <DatabaseSchemaGraph data={schemaData} />
-        )}
-      </div>
+          ) : (
+            <div className="h-[600px] w-full rounded-xl border bg-card shadow-sm">
+              <DatabaseSchemaGraph data={schemaData} />
+            </div>
+          )}
+        </div>
 
-      {/* Info panel */}
-      {schemaData && (
-        <div className="bg-white border-t border-gray-200 p-4">
-          <div className="max-w-7xl mx-auto">
+        {/* Info panel */}
+        {schemaData && (
+          <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="text-center">
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-foreground text-2xl">
                   {schemaData.schemas?.length || 0}
                 </div>
-                <div className="text-gray-600">Schemas</div>
+                <div className="text-muted-foreground">Schemas</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-foreground text-2xl">
                   {schemaData.nodes?.length || 0}
                 </div>
-                <div className="text-gray-600">Tables</div>
+                <div className="text-muted-foreground">Tables</div>
               </div>
               <div className="text-center">
-                <div className="font-semibold text-gray-900">
+                <div className="font-semibold text-foreground text-2xl">
                   {schemaData.edges?.length || 0}
                 </div>
-                <div className="text-gray-600">Relations</div>
+                <div className="text-muted-foreground">Relations</div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
