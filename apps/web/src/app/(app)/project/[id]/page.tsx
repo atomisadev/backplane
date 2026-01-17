@@ -147,26 +147,12 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  // const [storedChanges, setStoredChanges] = useLocalStorage<PendingChange[]>(
-  //   id,
-  //   [],
-  // );
   // Optimistic State Layer
-  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
+    id,
+    [],
+  );
 
-  // const pendingChangeRef = useRef(pendingChanges);
-
-  // useEffect(() => {
-  //   pendingChangeRef.current = pendingChanges;
-  // }, [pendingChanges]);
-
-  // useEffect(() => {
-  //   return () => {
-  //     setStoredChanges(pendingChangeRef.current);
-  //   };
-  // }, []);
-
-  // --- Derived State (The "Merge" Logic) ---
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
 
