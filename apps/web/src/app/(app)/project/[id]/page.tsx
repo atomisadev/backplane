@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   ChevronRight,
   Search,
@@ -34,6 +42,7 @@ import {
   Settings,
   Save,
   Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -146,6 +155,8 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
@@ -253,13 +264,26 @@ export default function ProjectView() {
       await queryClient.invalidateQueries({ queryKey: ["project", id] });
       await queryClient.invalidateQueries({ queryKey: ["schema-indexes", id] });
       setPendingChanges([]);
+      toast.dismiss(toastId);
+      toast.success("Schema updated successfully");
     } catch (e) {
       console.error(e);
-      alert("Failed to publish changes.");
+      toast.dismiss(toastId);
+      toast.error("Failed to publish changes");
     } finally {
       setIsPublishing(false);
     }
   };
+
+  const handleDiscardChanges = useCallback(() => {
+    setIsDiscardDialogOpen(true);
+  }, []);
+
+  const confirmDiscard = useCallback(() => {
+    setPendingChanges([]);
+    setIsDiscardDialogOpen(false);
+    toast.info("Pending changes discarded");
+  }, [setPendingChanges]);
 
   const handleViewIndexesClick = useCallback(
     (schema: string, table: string) => {
@@ -417,6 +441,18 @@ export default function ProjectView() {
                     {pendingChanges.length} unsaved change
                     {pendingChanges.length !== 1 ? "s" : ""}
                   </Badge>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleDiscardChanges}
+                    disabled={isPublishing}
+                  >
+                    <X className="size-3.5" />
+                    Discard
+                  </Button>
+
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
@@ -483,6 +519,33 @@ export default function ProjectView() {
           onOpenChange={setIsViewIndexesOpen}
           targetTable={indexesTable}
         />
+
+        <Dialog
+          open={isDiscardDialogOpen}
+          onOpenChange={setIsDiscardDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Discard Changes</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to discard all {pendingChanges.length}{" "}
+                pending change{pendingChanges.length !== 1 ? "s" : ""}? This
+                action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsDiscardDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDiscard}>
+                Discard Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );
