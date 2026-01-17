@@ -11,33 +11,48 @@ import {
   ConnectionLineType,
   useNodesState,
   useEdgesState,
+  Handle,
+  Position,
+  BackgroundVariant,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Key, GripHorizontal, Database } from "lucide-react";
 
-// Custom CSS for black control icons and proper text colors
 const customStyles = `
-  .react-flow__controls button svg {
-    fill: #000000 !important;
+  .react-flow__controls {
+    box-shadow: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--card);
+    padding: 2px;
   }
   .react-flow__controls button {
-    background: #ffffff;
-    border: 1px solid #d1d5db;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    width: 28px;
+    height: 28px;
+    color: var(--foreground);
+  }
+  .react-flow__controls button:last-child {
+    border-bottom: none;
   }
   .react-flow__controls button:hover {
-    background: #f3f4f6;
+    background-color: var(--accent);
+    color: var(--accent-foreground);
   }
-  .react-flow__node {
-    color: #111827 !important;
+  .react-flow__controls button svg {
+    fill: currentColor !important;
   }
-  .react-flow__node * {
-    color: inherit !important;
+  .react-flow__background {
+    background-color: var(--background);
   }
-  .react-flow__edge-text {
-    fill: #374151 !important;
+  /* MiniMap styles removed */
+  .react-flow__attribution {
+    display: none;
   }
 `;
 
-// Define the structure of the input data
 interface Column {
   name: string;
   type: string;
@@ -75,73 +90,87 @@ interface DatabaseSchemaGraphProps {
   data: DatabaseSchema;
 }
 
-// Custom node component for database tables
 const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
   const { table } = data;
 
   return (
-    <div className="bg-white border border-gray-300 rounded-lg shadow-lg min-w-62.5 max-w-87.5">
-      {/* Table header */}
-      <div className="bg-blue-600 text-white px-4 py-2 rounded-t-lg">
-        <div className="font-bold text-sm text-white">{table.name}</div>
-        <div className="text-xs opacity-90 text-white">{table.schema}</div>
+    <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-ring/20">
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-primary !border-background !w-2.5 !h-2.5"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-primary !border-background !w-2.5 !h-2.5"
+      />
+
+      <div className="flex flex-col border-b border-border bg-muted/30 px-4 py-3 first:rounded-t-xl">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded-[4px] border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              {table.schema}
+            </span>
+          </div>
+          <GripHorizontal className="size-4 text-muted-foreground/20" />
+        </div>
+        <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
+          <Database className="size-3.5 text-primary/70" />
+          {table.name}
+        </div>
       </div>
 
-      {/* Columns */}
-      <div className="max-h-100 overflow-y-auto">
-        {table.columns.map((column: Column) => (
-          <div
-            key={column.name}
-            className={`px-4 py-2 border-b border-gray-100 last:border-b-0 ${
-              table.primaryKey.includes(column.name)
-                ? "bg-yellow-50 border-l-4 border-l-yellow-400"
-                : "bg-white"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="font-medium text-sm text-gray-900">
+      <div className="flex flex-col py-1">
+        {table.columns.map((column: Column) => {
+          const isPk = table.primaryKey.includes(column.name);
+          return (
+            <div
+              key={column.name}
+              className={`group flex items-center justify-between px-4 py-1.5 text-xs transition-colors hover:bg-muted/50 ${
+                isPk ? "bg-primary/5" : ""
+              }`}
+            >
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="flex w-3 shrink-0 items-center justify-center">
+                  {isPk ? (
+                    <Key className="size-3 text-amber-500" />
+                  ) : (
+                    <div className="size-1.5 rounded-full bg-muted-foreground/30 group-hover:bg-muted-foreground/60" />
+                  )}
+                </div>
+                <span
+                  className={`truncate font-medium font-mono ${isPk ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}
+                >
                   {column.name}
                 </span>
-                {table.primaryKey.includes(column.name) && (
-                  <span className="text-xs bg-yellow-200 text-yellow-800 px-1 rounded">
-                    PK
-                  </span>
-                )}
               </div>
-              <div className="text-xs text-gray-500">
-                {!column.nullable && (
-                  <span className="bg-red-100 text-red-800 px-1 rounded mr-1">
-                    NOT NULL
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="text-xs text-gray-600 mt-1">
-              {column.type}
-              {column.default && (
-                <span className="ml-2 text-blue-600">
-                  default: {column.default}
+
+              <div className="flex items-center gap-2 ml-4">
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                  {column.type}
                 </span>
-              )}
+                {!column.nullable && !isPk && (
+                  <span className="text-[9px] text-destructive/80 font-medium px-1">
+                    *
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 };
 
-// Node types
 const nodeTypes = {
   table: TableNodeComponent,
 };
 
 export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
-  // Convert database tables to ReactFlow nodes
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
-      // Calculate position based on schema and index
       const schemaIndex = data.schemas.indexOf(table.schema);
       const tablesInSchema = data.nodes.filter(
         (n) => n.schema === table.schema,
@@ -154,8 +183,8 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         id: table.id,
         type: "table",
         position: {
-          x: schemaIndex * 400 + (tableIndexInSchema % 2) * 200,
-          y: Math.floor(tableIndexInSchema / 2) * 300 + schemaIndex * 50,
+          x: schemaIndex * 450 + (tableIndexInSchema % 2) * 50,
+          y: Math.floor(tableIndexInSchema / 2) * 350 + schemaIndex * 100,
         },
         data: {
           table,
@@ -164,28 +193,38 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
     });
   }, [data.nodes, data.schemas]);
 
-  // Convert database relationships to ReactFlow edges
   const initialEdges: Edge[] = useMemo(() => {
     return data.edges.map((relationship) => ({
       id: relationship.id,
       source: relationship.source,
       target: relationship.target,
       type: "smoothstep",
-      animated: true,
+      animated: true, // MODIFIED: Changed to true for dotted animated lines
       label: relationship.label,
       labelStyle: {
-        fontSize: "12px",
-        backgroundColor: "rgba(255, 255, 255, 0.8)",
-        padding: "2px 4px",
-        borderRadius: "4px",
+        fill: "var(--muted-foreground)",
+        fontSize: 10,
+        fontWeight: 500,
       },
+      labelBgStyle: {
+        fill: "var(--background)",
+        fillOpacity: 0.8,
+        stroke: "var(--border)",
+        strokeWidth: 1,
+      },
+      labelBgPadding: [4, 2],
+      labelBgBorderRadius: 4,
       style: {
-        stroke: "#3b82f6",
-        strokeWidth: 2,
+        stroke: "var(--muted-foreground)",
+        strokeWidth: 1.5,
+        opacity: 0.6,
+        fill: "none", // MODIFIED: CRITICAL FIX - prevents black boxes by removing path fill
       },
       markerEnd: {
         type: "arrowclosed",
-        color: "#3b82f6",
+        color: "var(--muted-foreground)",
+        width: 15,
+        height: 15,
       },
     }));
   }, [data.edges]);
@@ -193,28 +232,12 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
-  const onConnect = useCallback(() => {
-    // Disable manual connections for this read-only schema view
-  }, []);
+  const onConnect = useCallback(() => {}, []);
 
-  // Color scheme for minimap
-  const nodeColor = (node: Node) => {
-    const table = node.data.table as TableNode;
-    // Color by schema
-    const schemaIndex = data.schemas.indexOf(table.schema);
-    const colors = [
-      "#3b82f6",
-      "#10b981",
-      "#f59e0b",
-      "#ef4444",
-      "#8b5cf6",
-      "#06b6d4",
-    ];
-    return colors[schemaIndex % colors.length];
-  };
+  const gridColor = "var(--border)";
 
   return (
-    <div className="w-full h-full bg-gray-50">
+    <div className="w-full h-full">
       <style dangerouslySetInnerHTML={{ __html: customStyles }} />
       <ReactFlow
         nodes={nodes}
@@ -226,39 +249,36 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         connectionLineType={ConnectionLineType.SmoothStep}
         colorMode="system"
         fitView
+        minZoom={0.1}
+        maxZoom={1.5}
         fitViewOptions={{
           padding: 0.2,
         }}
       >
-        <Background />
-        <Controls />
-        <MiniMap nodeColor={nodeColor} nodeStrokeWidth={3} zoomable pannable />
+        <Background
+          color={gridColor}
+          gap={20}
+          size={1}
+          variant={BackgroundVariant.Dots} // MODIFIED: Explicit Enum usage fixes TS error
+          className=""
+        />
+        <Controls showInteractive={false} />
+        {/* MODIFIED: MiniMap removed */}
       </ReactFlow>
 
-      {/* Schema legend */}
-      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
-        <h3 className="font-semibold text-sm text-gray-900 mb-2">Schemas</h3>
-        <div className="space-y-1">
-          {data.schemas.map((schema, index) => {
-            const colors = [
-              "#3b82f6",
-              "#10b981",
-              "#f59e0b",
-              "#ef4444",
-              "#8b5cf6",
-              "#06b6d4",
-            ];
-            const color = colors[index % colors.length];
-            return (
-              <div key={schema} className="flex items-center space-x-2">
-                <div
-                  className="w-3 h-3 rounded"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-sm text-gray-900">{schema}</span>
-              </div>
-            );
-          })}
+      <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
+        <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
+          Schemas
+        </h3>
+        <div className="space-y-1.5">
+          {data.schemas.map((schema) => (
+            <div key={schema} className="flex items-center space-x-2">
+              <span className="flex h-2 w-2 rounded-full bg-primary" />
+              <span className="text-xs text-muted-foreground font-medium">
+                {schema}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
