@@ -6,7 +6,7 @@ import { SchemaNode } from "./types";
 import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
-  const { table } = data;
+  const { table, onAddColumn } = data;
 
   return (
     <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
@@ -28,12 +28,16 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
       <div className="flex flex-col py-1">
         {table.columns.map((column) => {
           const isPk = table.primaryKey.includes(column.name);
+          const isPending = column.isPending;
           return (
             <div
               key={column.name}
               className={cn(
-                "relative group flex items-center justify-between px-4 py-1.5 text-xs transition-colors hover:bg-muted/50",
-                isPk && "bg-primary/5",
+                "relative group flex items-center justify-between px-4 py-1.5 text-xs transition-colors",
+                isPending
+                  ? "bg-green-500/10 hover:bg-green-500/15 border-l-2 border-green-500"
+                  : "hover:bg-muted/50",
+                isPk && !isPending && "bg-primary/5",
               )}
             >
               <Handle
@@ -47,6 +51,8 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
                 <div className="flex w-3 shrink-0 items-center justify-center">
                   {isPk ? (
                     <Key className="size-3 text-amber-500" />
+                  ) : isPending ? (
+                    <div className="size-1.5 rounded-full bg-green-500 animate-pulse" />
                   ) : (
                     <div className="size-1.5 rounded-full bg-muted-foreground/30 group-hover:bg-muted-foreground/60" />
                   )}
@@ -92,7 +98,11 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
           className="nodrag h-7 flex-1 text-[10px] font-medium text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm border border-transparent hover:border-border/50 transition-all"
           onClick={(e) => {
             e.stopPropagation();
-            alert(`Add column to ${table.name}`);
+            if (onAddColumn) {
+              onAddColumn(table.schema, table.name);
+            } else {
+              alert(`Add column to ${table.name}`);
+            }
           }}
         >
           <Plus className="mr-1.5 size-3" />

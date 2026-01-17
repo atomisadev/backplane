@@ -32,9 +32,10 @@ const nodeTypes = {
 
 interface DatabaseSchemaGraphContentProps {
   data: DbSchemaGraphData;
+  onAddColumn?: (schema: string, table: string) => void;
 }
 
-function GraphContent({ data }: DatabaseSchemaGraphContentProps) {
+function GraphContent({ data, onAddColumn }: DatabaseSchemaGraphContentProps) {
   const [showLabels, setShowLabels] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
     "pointer",
@@ -62,10 +63,11 @@ function GraphContent({ data }: DatabaseSchemaGraphContentProps) {
         },
         data: {
           table,
+          onAddColumn,
         },
       };
     });
-  }, [data.nodes, data.schemas]);
+  }, []);
 
   const getEdges = useCallback(
     (edgesData: Relationship[], show: boolean): Edge[] => {
@@ -116,6 +118,42 @@ function GraphContent({ data }: DatabaseSchemaGraphContentProps) {
   useEffect(() => {
     setEdges(getEdges(data.edges, showLabels));
   }, [showLabels, data.edges, setEdges, getEdges]);
+
+  useEffect(() => {
+    setNodes((currentNodes) => {
+      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+
+      return data.nodes.map((table) => {
+        const existingNode = nodeMap.get(table.id);
+
+        let position = existingNode?.position;
+
+        if (!position) {
+          const schemaIndex = data.schemas.indexOf(table.schema);
+          const tablesInSchema = data.nodes.filter(
+            (n) => n.schema === table.schema,
+          );
+          const idx = tablesInSchema.findIndex((t) => t.id === table.id);
+
+          position = {
+            x: schemaIndex * 450 + (idx % 2) * 50,
+            y: Math.floor(idx / 2) * 350 + schemaIndex * 100,
+          };
+        }
+
+        return {
+          id: table.id,
+          type: "table",
+          position,
+          data: {
+            table,
+            onAddColumn,
+          },
+          measured: existingNode?.measured,
+        };
+      });
+    });
+  }, [data.nodes, data.schemas, onAddColumn, setNodes]);
 
   const handleAutoLayout = useCallback(() => {
     setIsLayouting(true);
@@ -197,10 +235,16 @@ function GraphContent({ data }: DatabaseSchemaGraphContentProps) {
   );
 }
 
-export function DatabaseSchemaGraph({ data }: { data: DbSchemaGraphData }) {
+export function DatabaseSchemaGraph({
+  data,
+  onAddColumn,
+}: {
+  data: DbSchemaGraphData;
+  onAddColumn?: (schema: string, table: string) => void;
+}) {
   return (
     <ReactFlowProvider>
-      <GraphContent data={data} />
+      <GraphContent data={data} onAddColumn={onAddColumn} />
     </ReactFlowProvider>
   );
 }

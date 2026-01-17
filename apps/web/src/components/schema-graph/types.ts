@@ -1,4 +1,3 @@
-// apps/web/src/components/schema-graph/types.ts
 import { Node } from "@xyflow/react";
 
 export interface Column {
@@ -8,6 +7,7 @@ export interface Column {
   nullable: boolean;
   default: string | null;
   position: number;
+  isPending?: boolean;
 }
 
 export interface TableData {
@@ -21,6 +21,7 @@ export interface TableData {
 
 export type SchemaNodeData = {
   table: TableData;
+  onAddColumn?: (schema: string, table: string) => void;
 };
 
 export type SchemaNode = Node<SchemaNodeData, "table">;

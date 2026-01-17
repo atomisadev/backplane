@@ -1,8 +1,6 @@
-// MODIFIED START: Fixed Top Bar styling and SidebarInset background
-// File: apps/web/src/app/(app)/project/[id]/page.tsx
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useProject } from "@/hooks/use-project";
 import { useParams, useRouter } from "next/navigation";
 import { DatabaseSchemaGraph } from "@/components/database-schema-graph";
@@ -34,174 +32,26 @@ import {
   Key,
   LayoutGrid,
   Settings,
-  MoreHorizontal,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
+import {
+  AddColumnDialog,
+  ColumnDefinition,
+} from "./_components/add-column-dialog";
+import { Badge } from "@/components/ui/badge";
 
-// --- Mock Data (Enriched for visual demo) ---
-const MOCK_SCHEMA_DATA = {
-  schemas: ["public", "auth"],
-  nodes: [
-    {
-      id: "public.users",
-      schema: "public",
-      name: "users",
-      type: "BASE TABLE",
-      primaryKey: ["id"],
-      columns: [
-        {
-          name: "id",
-          type: "uuid",
-          udt: "uuid",
-          nullable: false,
-          default: "gen_random_uuid()",
-          position: 1,
-        },
-        {
-          name: "email",
-          type: "text",
-          udt: "text",
-          nullable: false,
-          default: null,
-          position: 2,
-        },
-        {
-          name: "name",
-          type: "text",
-          udt: "text",
-          nullable: true,
-          default: null,
-          position: 3,
-        },
-        {
-          name: "created_at",
-          type: "timestamp",
-          udt: "timestamp",
-          nullable: false,
-          default: "now()",
-          position: 4,
-        },
-        {
-          name: "role",
-          type: "varchar",
-          udt: "varchar",
-          nullable: false,
-          default: "'user'",
-          position: 5,
-        },
-      ],
-    },
-    {
-      id: "public.posts",
-      schema: "public",
-      name: "posts",
-      type: "BASE TABLE",
-      primaryKey: ["id"],
-      columns: [
-        {
-          name: "id",
-          type: "uuid",
-          udt: "uuid",
-          nullable: false,
-          default: "gen_random_uuid()",
-          position: 1,
-        },
-        {
-          name: "title",
-          type: "text",
-          udt: "text",
-          nullable: false,
-          default: null,
-          position: 2,
-        },
-        {
-          name: "content",
-          type: "text",
-          udt: "text",
-          nullable: true,
-          default: null,
-          position: 3,
-        },
-        {
-          name: "published",
-          type: "boolean",
-          udt: "bool",
-          nullable: false,
-          default: "false",
-          position: 4,
-        },
-        {
-          name: "author_id",
-          type: "uuid",
-          udt: "uuid",
-          nullable: false,
-          default: null,
-          position: 5,
-        },
-      ],
-    },
-    {
-      id: "auth.sessions",
-      schema: "auth",
-      name: "sessions",
-      type: "BASE TABLE",
-      primaryKey: ["token"],
-      columns: [
-        {
-          name: "token",
-          type: "text",
-          udt: "text",
-          nullable: false,
-          default: null,
-          position: 1,
-        },
-        {
-          name: "user_id",
-          type: "uuid",
-          udt: "uuid",
-          nullable: false,
-          default: null,
-          position: 2,
-        },
-        {
-          name: "expires_at",
-          type: "timestamp",
-          udt: "timestamp",
-          nullable: false,
-          default: null,
-          position: 3,
-        },
-        {
-          name: "ip_address",
-          type: "inet",
-          udt: "inet",
-          nullable: true,
-          default: null,
-          position: 4,
-        },
-      ],
-    },
-  ],
-  edges: [
-    {
-      id: "posts_author_id_fkey",
-      source: "public.posts",
-      sourceColumn: "author_id",
-      target: "public.users",
-      targetColumn: "id",
-      label: "author_id → id",
-    },
-    {
-      id: "sessions_user_id_fkey",
-      source: "auth.sessions",
-      sourceColumn: "user_id",
-      target: "public.users",
-      targetColumn: "id",
-      label: "user_id → id",
-    },
-  ],
+// --- Types ---
+
+type PendingChange = {
+  type: "CREATE_COLUMN";
+  schema: string;
+  table: string;
+  column: ColumnDefinition;
 };
+
+// --- Helper Components ---
 
 function SchemaTreeItem({
   node,
@@ -252,10 +102,20 @@ function SchemaTreeItem({
             >
               {node.primaryKey.includes(col.name) ? (
                 <Key className="size-3 text-amber-500 mr-2 shrink-0" />
+              ) : col.isPending ? (
+                <div className="size-1.5 rounded-full bg-green-500 mr-2 shrink-0 animate-pulse" />
               ) : (
                 <Columns className="size-3 mr-2 opacity-30 shrink-0" />
               )}
-              <span className="truncate opacity-80">{col.name}</span>
+              <span
+                className={cn(
+                  "truncate opacity-80",
+                  col.isPending &&
+                    "text-green-600 dark:text-green-400 font-medium",
+                )}
+              >
+                {col.name}
+              </span>
               <span className="ml-auto text-[9px] opacity-40">{col.type}</span>
             </SidebarMenuButton>
           ))}
@@ -265,40 +125,108 @@ function SchemaTreeItem({
   );
 }
 
+// --- Main Page Component ---
+
 export default function ProjectView() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { data: project, isLoading, error } = useProject(id);
   const [searchTerm, setSearchTerm] = useState("");
 
-  let schema_data: DbSchemaGraph | null = null;
-  if (project?.schemaSnapshot) {
-    schema_data = DbSchemaGraphSchema.parse(project.schemaSnapshot);
-  }
+  // Modal & Selection State
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [selectedTable, setSelectedTable] = useState<{
+    schema: string;
+    name: string;
+  } | null>(null);
+
+  // Optimistic State Layer
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+
+  // --- Derived State (The "Merge" Logic) ---
+  const mergedSchema = useMemo(() => {
+    if (!project?.schemaSnapshot) return null;
+
+    let baseData: DbSchemaGraph;
+    try {
+      baseData = DbSchemaGraphSchema.parse(project.schemaSnapshot);
+    } catch (e) {
+      console.error("Schema parse error", e);
+      return null;
+    }
+
+    // Deep clone to create a mutable draft for the UI
+    const clonedData = JSON.parse(JSON.stringify(baseData)) as DbSchemaGraph;
+
+    // Apply pending changes
+    pendingChanges.forEach((change) => {
+      if (change.type === "CREATE_COLUMN") {
+        const node = clonedData.nodes.find(
+          (n) => n.schema === change.schema && n.name === change.table,
+        );
+        if (node) {
+          node.columns.push({
+            name: change.column.name,
+            type: change.column.type,
+            udt: change.column.type,
+            nullable: change.column.nullable,
+            default: change.column.defaultValue || null,
+            position: node.columns.length + 1,
+            // @ts-ignore - Injecting UI-only flag
+            isPending: true,
+          });
+        }
+      }
+    });
+
+    return clonedData;
+  }, [project, pendingChanges]);
+
+  // --- Handlers ---
+
+  const handleQueueColumnAdd = useCallback(
+    (colDef: ColumnDefinition) => {
+      if (!selectedTable) return;
+
+      setPendingChanges((prev) => [
+        ...prev,
+        {
+          type: "CREATE_COLUMN",
+          schema: selectedTable.schema,
+          table: selectedTable.name,
+          column: colDef,
+        },
+      ]);
+    },
+    [selectedTable],
+  );
+
+  const handleAddColumnClick = useCallback((schema: string, table: string) => {
+    setSelectedTable({ schema, name: table });
+    setIsAddColumnOpen(true);
+  }, []);
 
   const filteredNodes = useMemo(() => {
-    if (!schema_data) return [];
-    if (!searchTerm) return schema_data.nodes;
-    return schema_data.nodes.filter(
+    if (!mergedSchema) return [];
+    if (!searchTerm) return mergedSchema.nodes;
+    return mergedSchema.nodes.filter(
       (n) =>
         n.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         n.schema.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [searchTerm, schema_data]);
+  }, [searchTerm, mergedSchema]);
 
   const nodesBySchema = useMemo(() => {
     const groups: Record<string, typeof filteredNodes> = {};
     if (!filteredNodes.length) return [];
-
-    console.log("filteredNodes: ", filteredNodes);
-
     filteredNodes.forEach((node) => {
       if (!groups[node.schema]) groups[node.schema] = [];
       groups[node.schema].push(node);
     });
-
     return groups;
-  }, [filteredNodes, schema_data]);
+  }, [filteredNodes]);
+
+  // --- Render ---
 
   if (isLoading) {
     return (
@@ -403,12 +331,11 @@ export default function ProjectView() {
 
         {/* RIGHT SIDE: CANVAS */}
         <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-muted/5">
-          {/* Header Area - FIX: Explicit background colors to avoid black bar */}
+          {/* Header Area */}
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4 z-10 shadow-sm">
             <SidebarTrigger className="-ml-1 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted" />
             <SidebarSeparator orientation="vertical" className="mr-2 h-4" />
 
-            {/* Breadcrumbs simulation */}
             <div className="flex items-center gap-1.5 text-sm">
               <span
                 className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -419,13 +346,35 @@ export default function ProjectView() {
               <ChevronRight className="size-4 text-muted-foreground/30" />
               <span className="font-medium text-foreground flex items-center gap-2">
                 {project.name}
-                <span className="rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
-                  {project.dbType}
-                </span>
               </span>
             </div>
 
             <div className="ml-auto flex items-center gap-2">
+              {/* Change Management UI */}
+              {pendingChanges.length > 0 && (
+                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200 mr-2">
+                  <Badge
+                    variant="secondary"
+                    className="font-mono text-[10px] h-6 px-2 text-muted-foreground bg-muted border-border/60"
+                  >
+                    {pendingChanges.length} unsaved change
+                    {pendingChanges.length !== 1 ? "s" : ""}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
+                    onClick={() => alert("Publish logic coming soon...")}
+                  >
+                    <Save className="size-3.5" />
+                    Publish Changes
+                  </Button>
+                  <SidebarSeparator
+                    orientation="vertical"
+                    className="mx-1 h-4"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center gap-1 bg-background rounded-lg p-0.5 border border-border/60 shadow-xs">
                 <Button
                   variant="ghost"
@@ -456,12 +405,24 @@ export default function ProjectView() {
           {/* Graph Area */}
           <div className="flex-1 overflow-hidden relative bg-muted/5">
             <div className="absolute inset-0">
-              {schema_data && <DatabaseSchemaGraph data={schema_data} />}
+              {mergedSchema && (
+                <DatabaseSchemaGraph
+                  data={mergedSchema}
+                  onAddColumn={handleAddColumnClick}
+                />
+              )}
             </div>
           </div>
         </SidebarInset>
+
+        {/* Dialog Layer */}
+        <AddColumnDialog
+          open={isAddColumnOpen}
+          onOpenChange={setIsAddColumnOpen}
+          targetTable={selectedTable}
+          onAdd={handleQueueColumnAdd}
+        />
       </div>
     </SidebarProvider>
   );
 }
-// MODIFIED END
