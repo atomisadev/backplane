@@ -46,6 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useApplySchemaChanges } from "@/hooks/use-schema";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
@@ -244,6 +245,9 @@ export default function ProjectView() {
 
   const handlePublish = async () => {
     setIsPublishing(true);
+
+    const toastId = toast.loading("Applying schema changes...");
+
     try {
       await mutateSchema.mutateAsync(pendingChanges);
       await queryClient.invalidateQueries({ queryKey: ["project", id] });
