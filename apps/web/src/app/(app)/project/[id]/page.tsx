@@ -33,6 +33,7 @@ import {
   LayoutGrid,
   Settings,
   Save,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -44,6 +45,7 @@ import { ViewIndexesDialog } from "./_components/view-indexes-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useApplySchemaChanges } from "@/hooks/use-schema";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
@@ -143,13 +145,14 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  // Optimistic State Layer
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
   );
 
   const mutateSchema = useApplySchemaChanges(id);
+  const queryClient = useQueryClient();
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -157,7 +160,6 @@ export default function ProjectView() {
     let baseData: DbSchemaGraph;
     try {
       baseData = DbSchemaGraphSchema.parse(project.schemaSnapshot);
-      // MODIFIED START: Pass layout data to schema
       if (project.graphLayout) {
         // @ts-ignore
         baseData.layout = project.graphLayout as Record<
@@ -165,7 +167,6 @@ export default function ProjectView() {
           { x: number; y: number }
         >;
       }
-      // MODIFIED END
     } catch (e) {
       console.error("Schema parse error", e);
       return null;
@@ -242,11 +243,17 @@ export default function ProjectView() {
   );
 
   const handlePublish = async () => {
-    const success = await mutateSchema.mutateAsync(pendingChanges);
-    if (!success) {
-      alert("Something went wrong.");
-    } else {
+    setIsPublishing(true);
+    try {
+      await mutateSchema.mutateAsync(pendingChanges);
+      await queryClient.invalidateQueries({ queryKey: ["project", id] });
+      await queryClient.invalidateQueries({ queryKey: ["schema-indexes", id] });
       setPendingChanges([]);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to publish changes.");
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -410,9 +417,14 @@ export default function ProjectView() {
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
                     onClick={handlePublish}
+                    disabled={isPublishing}
                   >
-                    <Save className="size-3.5" />
-                    Publish Changes
+                    {isPublishing ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    {isPublishing ? "Publishing..." : "Publish Changes"}
                   </Button>
                   <SidebarSeparator
                     orientation="vertical"
