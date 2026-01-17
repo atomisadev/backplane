@@ -26,11 +26,13 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import React, { useState } from "react";
-import { DbSchemaGraph } from "@/lib/schemas/dbGraph";
+import { PendingChange } from "@/app/(app)/project/[id]/page";
+import { DbSchemaGraphData } from "./types";
 
 interface AddTableProps {
-  schemaSnapshot: DbSchemaGraph;
-  setData: React.Dispatch<React.SetStateAction<DbSchemaGraph>>;
+  schemaSnapshot: DbSchemaGraphData;
+  currentChanges: PendingChange[];
+  setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }
 
 type PkType = "uuid" | "bigint" | "integer" | "text" | "";
@@ -44,46 +46,76 @@ const PK_TYPES: { value: PkType; label: string; hint?: string }[] = [
 
 export default function AddTable({
   schemaSnapshot: schemaData,
-  setData,
+  currentChanges,
+  setChanges,
 }: AddTableProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [tooltipOpen, setTooltipOpen] = useState(false);
   const [name, setName] = useState("");
   const [pkName, setPkName] = useState("");
   const [schema, setSchema] = useState("public");
   const [pkType, setPkType] = useState<PkType>("");
+  const [pkDefault, setPkDefault] = useState("");
 
-  console.log(schemaData);
+  // console.log(schemaData);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // console.log("Submitted!");
+
+    const newTable: PendingChange = {
+      type: "CREATE_TABLE",
+      table: name,
+      schema: schema,
+      column: {
+        name: pkName,
+        type: pkType,
+        nullable: false,
+        defaultValue: pkDefault,
+      },
+    };
+
+    console.log(newTable);
+
+    setChanges([...currentChanges, newTable]);
+
+    setDialogOpen(false);
+  };
 
   return (
     <Dialog
+      open={dialogOpen}
       onOpenChange={(open) => {
-        console.log(open);
-        if (!open) {
+        setDialogOpen(open);
+
+        if (open) {
           setSchema("public");
-          setName("");
-          setPkName("");
+          setName(`table_${schemaData?.nodes.length ?? "0"}`);
+          setPkName("id");
           setPkType("integer");
+          setPkDefault("");
         }
       }}
     >
-      <form>
-        <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full hover:bg-muted"
-              >
-                <Plus className="size-4" />
-              </Button>
-            </DialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top">New Table</TooltipContent>
-        </Tooltip>
+      <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full hover:bg-muted"
+            >
+              <Plus className="size-4" />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">New Table</TooltipContent>
+      </Tooltip>
 
-        <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]">
+        <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add Table</DialogTitle>
             <DialogDescription>
@@ -97,7 +129,7 @@ export default function AddTable({
               <Input
                 id="name-1"
                 name="name"
-                defaultValue={`table_${schemaData?.nodes.length ?? "0"}`}
+                value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
@@ -107,7 +139,7 @@ export default function AddTable({
               <Input
                 id="schema-1"
                 name="schema"
-                defaultValue={`public`}
+                value={schema}
                 onChange={(e) => setSchema(e.target.value)}
                 required
               />
@@ -117,7 +149,7 @@ export default function AddTable({
               <Input
                 id="pk-1"
                 name="primaryKey"
-                defaultValue="id"
+                value={pkName}
                 onChange={(e) => setPkName(e.target.value)}
                 required
               />
@@ -141,6 +173,15 @@ export default function AddTable({
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-3">
+              <Label htmlFor="pk-2">Set Default Value</Label>
+              <Input
+                id="pk-2"
+                name="default-value"
+                value={pkDefault}
+                onChange={(e) => setPkDefault(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
@@ -148,8 +189,8 @@ export default function AddTable({
             </DialogClose>
             <Button type="submit">Save changes</Button>
           </DialogFooter>
-        </DialogContent>
-      </form>
+        </form>
+      </DialogContent>
     </Dialog>
   );
 }

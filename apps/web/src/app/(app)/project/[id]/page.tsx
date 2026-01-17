@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { useProject } from "@/hooks/use-project";
 import { useParams, useRouter } from "next/navigation";
 import { DatabaseSchemaGraph } from "@/components/database-schema-graph";
@@ -41,11 +47,12 @@ import {
   ColumnDefinition,
 } from "./_components/add-column-dialog";
 import { Badge } from "@/components/ui/badge";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 // --- Types ---
 
-type PendingChange = {
-  type: "CREATE_COLUMN";
+export type PendingChange = {
+  type: "CREATE_COLUMN" | "CREATE_TABLE";
   schema: string;
   table: string;
   column: ColumnDefinition;
@@ -140,8 +147,24 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
+  // const [storedChanges, setStoredChanges] = useLocalStorage<PendingChange[]>(
+  //   id,
+  //   [],
+  // );
   // Optimistic State Layer
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+
+  // const pendingChangeRef = useRef(pendingChanges);
+
+  // useEffect(() => {
+  //   pendingChangeRef.current = pendingChanges;
+  // }, [pendingChanges]);
+
+  // useEffect(() => {
+  //   return () => {
+  //     setStoredChanges(pendingChangeRef.current);
+  //   };
+  // }, []);
 
   // --- Derived State (The "Merge" Logic) ---
   const mergedSchema = useMemo(() => {
@@ -176,6 +199,26 @@ export default function ProjectView() {
             isPending: true,
           });
         }
+      } else if (change.type === "CREATE_TABLE") {
+        clonedData.nodes.push({
+          id: `${change.schema}.${change.table}`,
+          name: change.table,
+          schema: change.schema,
+          type: "BASE TABLE",
+          primaryKey: [change.column.name],
+          columns: [
+            {
+              name: change.column.name,
+              type: change.column.type,
+              udt: change.column.type,
+              nullable: change.column.nullable,
+              default: change.column.defaultValue || null,
+              position: 1,
+              // @ts-ignore - Injecting UI-only flag
+              isPending: true,
+            },
+          ],
+        });
       }
     });
 
@@ -407,7 +450,9 @@ export default function ProjectView() {
             <div className="absolute inset-0">
               {mergedSchema && (
                 <DatabaseSchemaGraph
+                  currentChanges={pendingChanges}
                   data={mergedSchema}
+                  setChanges={setPendingChanges}
                   onAddColumn={handleAddColumnClick}
                 />
               )}

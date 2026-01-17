@@ -19,6 +19,7 @@ import { DbSchemaGraphData, Relationship, SchemaNode } from "./types";
 import { TableNode } from "./table-node";
 import { GraphToolbar } from "./toolbar";
 import { performAutoLayout } from "./layout-engine";
+import { PendingChange } from "@/app/(app)/project/[id]/page";
 
 const customStyles = `
   .react-flow__controls { display: none; }
@@ -33,9 +34,16 @@ const nodeTypes = {
 interface DatabaseSchemaGraphContentProps {
   data: DbSchemaGraphData;
   onAddColumn?: (schema: string, table: string) => void;
+  currentChanges: PendingChange[];
+  setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }
 
-function GraphContent({ data, onAddColumn }: DatabaseSchemaGraphContentProps) {
+function GraphContent({
+  data,
+  onAddColumn,
+  currentChanges,
+  setChanges,
+}: DatabaseSchemaGraphContentProps) {
   const [showLabels, setShowLabels] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
     "pointer",
@@ -207,6 +215,9 @@ function GraphContent({ data, onAddColumn }: DatabaseSchemaGraphContentProps) {
 
         <GraphToolbar
           onAddNode={onAddNode}
+          schemaData={data}
+          currentChanges={currentChanges}
+          setChanges={setChanges}
           showLabels={showLabels}
           setShowLabels={setShowLabels}
           interactionMode={interactionMode}
@@ -238,13 +249,22 @@ function GraphContent({ data, onAddColumn }: DatabaseSchemaGraphContentProps) {
 export function DatabaseSchemaGraph({
   data,
   onAddColumn,
+  currentChanges,
+  setChanges,
 }: {
   data: DbSchemaGraphData;
+  currentChanges: PendingChange[];
   onAddColumn?: (schema: string, table: string) => void;
+  setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }) {
   return (
     <ReactFlowProvider>
-      <GraphContent data={data} onAddColumn={onAddColumn} />
+      <GraphContent
+        data={data}
+        onAddColumn={onAddColumn}
+        currentChanges={currentChanges}
+        setChanges={setChanges}
+      />
     </ReactFlowProvider>
   );
 }

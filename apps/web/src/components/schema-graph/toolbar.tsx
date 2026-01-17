@@ -22,10 +22,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import AddTable from "../addTable";
+import AddTable from "./addTable";
+import { PendingChange } from "@/app/(app)/project/[id]/page";
+import { DbSchemaGraphData } from "./types";
 
 interface GraphToolbarProps {
   onAddNode: () => void;
+  currentChanges: PendingChange[];
+  schemaData: DbSchemaGraphData;
+  setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
   showLabels: boolean;
   setShowLabels: (v: boolean) => void;
   interactionMode: "pointer" | "hand";
@@ -36,6 +41,9 @@ interface GraphToolbarProps {
 
 export function GraphToolbar({
   onAddNode,
+  currentChanges,
+  schemaData,
+  setChanges,
   showLabels,
   setShowLabels,
   interactionMode,
@@ -50,7 +58,11 @@ export function GraphToolbar({
       <div className="flex items-center gap-1 p-1.5 bg-background/80 backdrop-blur-md border border-border/60 rounded-full shadow-xl supports-[backdrop-filter]:bg-background/60">
         <TooltipProvider delayDuration={0}>
           <div className="flex items-center px-1">
-            <AddTable />
+            <AddTable
+              schemaSnapshot={schemaData}
+              setChanges={setChanges}
+              currentChanges={currentChanges}
+            />
           </div>
 
           <Separator orientation="vertical" className="h-6 bg-border/60" />
