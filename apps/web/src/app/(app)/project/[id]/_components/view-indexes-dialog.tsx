@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIndexes } from "../_hooks/use-indexes";
 import { useParams } from "next/navigation";
-import { Loader2, Fingerprint, Check, Shield } from "lucide-react";
+import { Loader2, Check, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ViewIndexesDialogProps {
@@ -40,22 +40,23 @@ export function ViewIndexesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] gap-0 p-0 overflow-hidden border-border/60 shadow-2xl bg-background/95 backdrop-blur-xl">
         <DialogHeader className="px-6 py-5 border-b border-border/40 bg-muted/5">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <DialogTitle className="text-lg font-semibold tracking-tight flex items-center gap-2">
-                <Fingerprint className="size-4 text-primary" />
+          <div className="space-y-1 pr-10">
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-lg font-semibold tracking-tight">
                 Table Indexes
               </DialogTitle>
-              <DialogDescription className="font-mono text-xs text-muted-foreground flex items-center gap-2">
-                <span className="flex h-1.5 w-1.5 rounded-full bg-primary/50" />
-                {targetTable?.schema}.{targetTable?.name}
-              </DialogDescription>
+              {indexes && (
+                <Badge
+                  variant="secondary"
+                  className="font-mono text-[10px] h-5 px-2 bg-background border border-border/50 text-muted-foreground"
+                >
+                  {indexes.length}
+                </Badge>
+              )}
             </div>
-            {indexes && (
-              <Badge variant="outline" className="font-mono text-[10px]">
-                {indexes.length} Index{indexes.length !== 1 ? "es" : ""}
-              </Badge>
-            )}
+            <DialogDescription className="font-mono text-xs text-muted-foreground">
+              {targetTable?.schema}.{targetTable?.name}
+            </DialogDescription>
           </div>
         </DialogHeader>
 

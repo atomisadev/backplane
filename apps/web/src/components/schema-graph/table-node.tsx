@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import { Key, Database, GripHorizontal, Plus, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,23 @@ import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
   const { table, onAddColumn, onViewIndexes } = data;
+
+  // MODIFIED START: Sort columns to ensure PK is always at the top
+  const sortedColumns = useMemo(() => {
+    const pkCols = [];
+    const otherCols = [];
+
+    for (const col of table.columns) {
+      if (table.primaryKey.includes(col.name)) {
+        pkCols.push(col);
+      } else {
+        otherCols.push(col);
+      }
+    }
+
+    return [...pkCols, ...otherCols];
+  }, [table.columns, table.primaryKey]);
+  // MODIFIED END
 
   return (
     <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
@@ -26,7 +43,8 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
       </div>
 
       <div className="flex flex-col py-1">
-        {table.columns.map((column) => {
+        {/* MODIFIED START: Map over sortedColumns instead of table.columns */}
+        {sortedColumns.map((column) => {
           const isPk = table.primaryKey.includes(column.name);
           const isPending = column.isPending;
           return (
@@ -89,6 +107,7 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
             </div>
           );
         })}
+        {/* MODIFIED END */}
       </div>
 
       <div className="flex items-center border-t border-border/50 bg-muted/10 p-1.5 gap-1.5 rounded-b-xl">
