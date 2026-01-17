@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   ChevronRight,
   Search,
@@ -147,6 +155,8 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
@@ -266,14 +276,13 @@ export default function ProjectView() {
   };
 
   const handleDiscardChanges = useCallback(() => {
-    if (
-      window.confirm(
-        "Are you sure you want to discard all pending changes? This action cannot be undone.",
-      )
-    ) {
-      setPendingChanges([]);
-      toast.info("Pending changes discarded");
-    }
+    setIsDiscardDialogOpen(true);
+  }, []);
+
+  const confirmDiscard = useCallback(() => {
+    setPendingChanges([]);
+    setIsDiscardDialogOpen(false);
+    toast.info("Pending changes discarded");
   }, [setPendingChanges]);
 
   const handleViewIndexesClick = useCallback(
@@ -510,6 +519,33 @@ export default function ProjectView() {
           onOpenChange={setIsViewIndexesOpen}
           targetTable={indexesTable}
         />
+
+        <Dialog
+          open={isDiscardDialogOpen}
+          onOpenChange={setIsDiscardDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>Discard Changes</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to discard all {pendingChanges.length}{" "}
+                pending change{pendingChanges.length !== 1 ? "s" : ""}? This
+                action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsDiscardDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDiscard}>
+                Discard Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarProvider>
   );
