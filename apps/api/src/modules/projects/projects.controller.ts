@@ -112,4 +112,32 @@ export const projectsController = new Elysia({ prefix: "/projects" })
         graphLayout: t.Optional(t.Any()),
       }),
     },
+  )
+  .delete(
+    "/:id",
+    async ({ request, params: { id }, set }) => {
+      const session = await getAuthSession(request.headers);
+      if (!session) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
+
+      try {
+        await projectService.delete(session.user.id, id);
+        return { success: true, message: "Project deleted successfully" };
+      } catch (error) {
+        console.error("Project deletion error:", error);
+        if (error instanceof Error && error.message === "Project not found") {
+          set.status = 404;
+          return { success: false, message: "Project not found" };
+        }
+        set.status = 500;
+        return { success: false, message: "Failed to delete project" };
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+    },
   );

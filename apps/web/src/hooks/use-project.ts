@@ -41,9 +41,26 @@ export const useProjects = () => {
     },
   });
 
+  const deleteProject = useMutation({
+    mutationFn: async (projectId: string) => {
+      const { data, error } = await api.api
+        .projects({ id: projectId })
+        .delete();
+      if (error)
+        throw new Error(
+          error.value ? JSON.stringify(error.value) : "Failed to delete",
+        );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
   return {
     projects,
     createProject,
+    deleteProject,
   };
 };
 

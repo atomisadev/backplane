@@ -185,5 +185,19 @@ export const projectService = {
     });
   },
 
+  async delete(userId: string, projectId: string) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.userId !== userId) {
+      throw new NotFoundError("Project not found");
+    }
+
+    return await prisma.project.delete({
+      where: { id: projectId },
+    });
+  },
+
   async introspectDB(pg: Knex) {},
 };
