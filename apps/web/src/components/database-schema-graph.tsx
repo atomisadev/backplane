@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import AddTable from "./addTable";
 
 const performAutoLayout = (nodes: Node[], edges: Edge[]) => {
   const X_SPACING = 80;
@@ -305,7 +306,8 @@ const nodeTypes = {
 };
 
 function GraphToolbar({
-  onAddNode,
+  schemaSnapshot,
+  setSchemaData,
   showLabels,
   setShowLabels,
   interactionMode,
@@ -313,7 +315,8 @@ function GraphToolbar({
   onAutoLayout,
   isLayouting,
 }: {
-  onAddNode: () => void;
+  schemaSnapshot: DbSchemaGraph;
+  setSchemaData: React.Dispatch<React.SetStateAction<DbSchemaGraph>>;
   showLabels: boolean;
   setShowLabels: (v: boolean) => void;
   interactionMode: "pointer" | "hand";
@@ -328,19 +331,7 @@ function GraphToolbar({
       <div className="flex items-center gap-1 p-1.5 bg-background/80 backdrop-blur-md border border-border/60 rounded-full shadow-xl supports-[backdrop-filter]:bg-background/60">
         <TooltipProvider delayDuration={0}>
           <div className="flex items-center px-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-full hover:bg-muted"
-                  onClick={onAddNode}
-                >
-                  <Plus className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">New Table</TooltipContent>
-            </Tooltip>
+            <AddTable schemaSnapshot={schemaSnapshot} setData={setSchemaData} />
           </div>
 
           <Separator orientation="vertical" className="h-6 bg-border/60" />
@@ -506,13 +497,16 @@ function GraphToolbar({
   );
 }
 
-function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
+function DatabaseSchemaGraphContent({
+  data: otherData,
+}: DatabaseSchemaGraphProps) {
   const [showLabels, setShowLabels] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
     "pointer",
   );
   const [isLayouting, setIsLayouting] = useState(false);
   const { fitView, getNodes, getEdges: getFlowEdges } = useReactFlow();
+  const [data, setData] = useState(otherData);
 
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
@@ -645,7 +639,8 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
         />
 
         <GraphToolbar
-          onAddNode={onAddNode}
+          schemaSnapshot={data}
+          setSchemaData={setData}
           showLabels={showLabels}
           setShowLabels={setShowLabels}
           interactionMode={interactionMode}
