@@ -34,6 +34,7 @@ import {
   Settings,
   Save,
   Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -253,13 +254,27 @@ export default function ProjectView() {
       await queryClient.invalidateQueries({ queryKey: ["project", id] });
       await queryClient.invalidateQueries({ queryKey: ["schema-indexes", id] });
       setPendingChanges([]);
+      toast.dismiss(toastId);
+      toast.success("Schema updated successfully");
     } catch (e) {
       console.error(e);
-      alert("Failed to publish changes.");
+      toast.dismiss(toastId);
+      toast.error("Failed to publish changes");
     } finally {
       setIsPublishing(false);
     }
   };
+
+  const handleDiscardChanges = useCallback(() => {
+    if (
+      window.confirm(
+        "Are you sure you want to discard all pending changes? This action cannot be undone.",
+      )
+    ) {
+      setPendingChanges([]);
+      toast.info("Pending changes discarded");
+    }
+  }, [setPendingChanges]);
 
   const handleViewIndexesClick = useCallback(
     (schema: string, table: string) => {
@@ -417,6 +432,18 @@ export default function ProjectView() {
                     {pendingChanges.length} unsaved change
                     {pendingChanges.length !== 1 ? "s" : ""}
                   </Badge>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleDiscardChanges}
+                    disabled={isPublishing}
+                  >
+                    <X className="size-3.5" />
+                    Discard
+                  </Button>
+
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
