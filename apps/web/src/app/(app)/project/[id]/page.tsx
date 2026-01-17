@@ -41,7 +41,7 @@ import {
   LayoutGrid,
   Settings,
   Save,
-  ListChecks,
+  ListRestart,
   Loader2,
   X,
 } from "lucide-react";
@@ -463,8 +463,8 @@ export default function ProjectView() {
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
                     onClick={() => setIsReviewOpen(true)}
                   >
-                    <ListChecks className="size-3.5" />
-                    Review Changes
+                    <ListRestart className="size-3.5" />
+                    Review
                   </Button>
                   <SidebarSeparator
                     orientation="vertical"
