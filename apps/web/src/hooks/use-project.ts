@@ -36,7 +36,7 @@ export const useProjects = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (data?.id) {
-        router.prefetch(`/project/${data.id}`);
+        router.push(`/project/${data.id}`);
       }
     },
   });
