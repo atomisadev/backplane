@@ -96,17 +96,6 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
 
   return (
     <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-ring/20">
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="!bg-primary !border-background !w-2.5 !h-2.5"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="!bg-primary !border-background !w-2.5 !h-2.5"
-      />
-
       <div className="flex flex-col border-b border-border bg-muted/30 px-4 py-3 first:rounded-t-xl">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -128,10 +117,17 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
           return (
             <div
               key={column.name}
-              className={`group flex items-center justify-between px-4 py-1.5 text-xs transition-colors hover:bg-muted/50 ${
+              className={`relative group flex items-center justify-between px-4 py-1.5 text-xs transition-colors hover:bg-muted/50 ${
                 isPk ? "bg-primary/5" : ""
               }`}
             >
+              <Handle
+                id={column.name}
+                type="target"
+                position={Position.Left}
+                className="!bg-primary !border-background !w-1.5 !h-1.5 !-left-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+
               <div className="flex items-center gap-2.5 overflow-hidden">
                 <div className="flex w-3 shrink-0 items-center justify-center">
                   {isPk ? (
@@ -157,6 +153,13 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
                   </span>
                 )}
               </div>
+
+              <Handle
+                id={column.name}
+                type="source"
+                position={Position.Right}
+                className="!bg-primary !border-background !w-1.5 !h-1.5 !-right-[3px] opacity-0 group-hover:opacity-100 transition-opacity"
+              />
             </div>
           );
         })}
@@ -198,9 +201,11 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
     return data.edges.map((relationship) => ({
       id: relationship.id,
       source: relationship.source,
+      sourceHandle: relationship.sourceColumn,
       target: relationship.target,
+      targetHandle: relationship.targetColumn,
       type: "smoothstep",
-      animated: true, // MODIFIED: Changed to true for dotted animated lines
+      animated: true,
       label: relationship.label,
       labelStyle: {
         fill: "var(--muted-foreground)",
@@ -219,7 +224,7 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         stroke: "var(--muted-foreground)",
         strokeWidth: 1.5,
         opacity: 0.6,
-        fill: "none", // MODIFIED: CRITICAL FIX - prevents black boxes by removing path fill
+        fill: "none",
       },
       markerEnd: {
         type: "arrowclosed",
@@ -260,11 +265,10 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
           color={gridColor}
           gap={20}
           size={1}
-          variant={BackgroundVariant.Dots} // MODIFIED: Explicit Enum usage fixes TS error
+          variant={BackgroundVariant.Dots}
           className=""
         />
         <Controls showInteractive={false} />
-        {/* MODIFIED: MiniMap removed */}
       </ReactFlow>
 
       <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
