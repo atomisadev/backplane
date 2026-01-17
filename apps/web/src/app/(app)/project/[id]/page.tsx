@@ -145,11 +145,12 @@ export default function ProjectView() {
   const [selectedTable, setSelectedTable] = useState<{
     schema: string;
     name: string;
+    columns: ColumnDefinition[];
   } | null>(null);
 
   // Optimistic State Layer
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
-    id,
+    `${id}.changes`,
     [],
   );
 
@@ -230,10 +231,13 @@ export default function ProjectView() {
     [selectedTable],
   );
 
-  const handleAddColumnClick = useCallback((schema: string, table: string) => {
-    setSelectedTable({ schema, name: table });
-    setIsAddColumnOpen(true);
-  }, []);
+  const handleAddColumnClick = useCallback(
+    (schema: string, table: string, columns: ColumnDefinition[]) => {
+      setSelectedTable({ schema, name: table, columns });
+      setIsAddColumnOpen(true);
+    },
+    [],
+  );
 
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];

@@ -25,9 +25,12 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { PendingChange } from "@/app/(app)/project/[id]/page";
 import { DbSchemaGraphData } from "./types";
+import { FormValues, makeSchema } from "@/lib/schemas/tableForm";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface AddTableProps {
   schemaSnapshot: DbSchemaGraphData;
@@ -59,27 +62,57 @@ export default function AddTable({
 
   // console.log(schemaData);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const existingTableNamesLower = useMemo(() => {
+    const s = new Set<string>();
 
-    // console.log("Submitted!");
+    for (const n of schemaData?.nodes ?? []) {
+      const tableName = n.name;
 
+      if (typeof tableName === "string") {
+        s.add(tableName.toLowerCase());
+      }
+    }
+
+    return s;
+  }, [schemaData]);
+
+  const formSchema = useMemo(
+    () => makeSchema(existingTableNamesLower),
+    [existingTableNamesLower],
+  );
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    mode: "onChange", // validates as user types/selects
+    defaultValues: {
+      name: "",
+      schema: "public",
+      pkName: "id",
+      pkType: "integer",
+      pkDefault: "",
+    },
+  });
+
+  const onValid = (values: FormValues) => {
     const newTable: PendingChange = {
       type: "CREATE_TABLE",
-      table: name,
-      schema: schema,
+      table: values.name,
+      schema: values.schema,
       column: {
-        name: pkName,
-        type: pkType,
+        name: values.pkName,
+        type: values.pkType,
         nullable: false,
-        defaultValue: pkDefault,
+        defaultValue: values.pkDefault ?? "",
       },
     };
 
-    console.log(newTable);
-
     setChanges([...currentChanges, newTable]);
-
     setDialogOpen(false);
   };
 
@@ -93,7 +126,7 @@ export default function AddTable({
           setSchema("public");
           setName(`table_${schemaData?.nodes.length ?? "0"}`);
           setPkName("id");
-          setPkType("integer");
+          setPkType("");
           setPkDefault("");
         }
       }}
@@ -115,7 +148,7 @@ export default function AddTable({
       </Tooltip>
 
       <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader>
             <DialogTitle>Add Table</DialogTitle>
             <DialogDescription>
@@ -123,71 +156,86 @@ export default function AddTable({
               to DB button.
             </DialogDescription>
           </DialogHeader>
+
           <div className="grid gap-4">
-            <div className="grid gap-3">
+            <div className="grid gap-2">
               <Label htmlFor="name-1">Name</Label>
-              <Input
-                id="name-1"
-                name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
+              <Input id="name-1" {...register("name")} />
+              {errors.name && (
+                <p className="text-sm text-destructive">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
-            <div className="grid gap-3">
+
+            <div className="grid gap-2">
               <Label htmlFor="schema-1">Schema</Label>
-              <Input
-                id="schema-1"
-                name="schema"
-                value={schema}
-                onChange={(e) => setSchema(e.target.value)}
-                required
-              />
+              <Input id="schema-1" {...register("schema")} />
+              {errors.schema && (
+                <p className="text-sm text-destructive">
+                  {errors.schema.message}
+                </p>
+              )}
             </div>
-            <div className="grid gap-3">
+
+            <div className="grid gap-2">
               <Label htmlFor="pk-1">Primary Key Name</Label>
-              <Input
-                id="pk-1"
-                name="primaryKey"
-                value={pkName}
-                onChange={(e) => setPkName(e.target.value)}
-                required
-              />
+              <Input id="pk-1" {...register("pkName")} />
+              {errors.pkName && (
+                <p className="text-sm text-destructive">
+                  {errors.pkName.message}
+                </p>
+              )}
             </div>
-            <div className="grid gap-3">
+
+            <div className="grid gap-2">
               <Label>Primary Key Type</Label>
-              <Select
-                value={pkType}
-                onValueChange={(v) => setPkType(v as PkType)}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a primary key type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PK_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-3">
-              <Label htmlFor="pk-2">Set Default Value</Label>
-              <Input
-                id="pk-2"
-                name="default-value"
-                value={pkDefault}
-                onChange={(e) => setPkDefault(e.target.value)}
+              <Controller
+                control={control}
+                name="pkType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a primary key type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PK_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
+              {errors.pkType && (
+                <p className="text-sm text-destructive">
+                  {errors.pkType.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="pk-2">Set Default Value</Label>
+              <Input id="pk-2" {...register("pkDefault")} />
+              {errors.pkDefault && (
+                <p className="text-sm text-destructive">
+                  {errors.pkDefault.message}
+                </p>
+              )}
             </div>
           </div>
+
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            <Button type="submit">Save changes</Button>
+
+            <Button type="submit" disabled={!isValid || isSubmitting}>
+              Save changes
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
