@@ -15,8 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Database, ArrowRight, Trash2 } from "lucide-react";
+import { Database, ArrowRight, Trash2, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useProjects } from "@/hooks/use-project";
@@ -46,12 +52,6 @@ export function ProjectCard({ id, name, dbType, createdAt }: ProjectCardProps) {
     }
   };
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDeleteDialogOpen(true);
-  };
-
   return (
     <div className="group block h-full relative">
       <Link href={`/project/${id}`} className="block h-full">
@@ -79,14 +79,34 @@ export function ProjectCard({ id, name, dbType, createdAt }: ProjectCardProps) {
               <p className="text-xs text-muted-foreground">
                 Created {new Date(createdAt).toLocaleDateString()}
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:text-destructive-foreground"
-                onClick={handleDeleteClick}
-              >
-                <Trash2 className="size-3" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                  >
+                    <MoreVertical className="size-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive-foreground focus:bg-destructive"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Delete Project
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardContent>
         </Card>
