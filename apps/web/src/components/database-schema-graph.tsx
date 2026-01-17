@@ -14,7 +14,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-// Custom CSS for black control icons
+// Custom CSS for black control icons and proper text colors
 const customStyles = `
   .react-flow__controls button svg {
     fill: #000000 !important;
@@ -25,6 +25,15 @@ const customStyles = `
   }
   .react-flow__controls button:hover {
     background: #f3f4f6;
+  }
+  .react-flow__node {
+    color: #111827 !important;
+  }
+  .react-flow__node * {
+    color: inherit !important;
+  }
+  .react-flow__edge-text {
+    fill: #374151 !important;
   }
 `;
 
@@ -74,8 +83,8 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
     <div className="bg-white border border-gray-300 rounded-lg shadow-lg min-w-62.5 max-w-87.5">
       {/* Table header */}
       <div className="bg-blue-600 text-white px-4 py-2 rounded-t-lg">
-        <div className="font-bold text-sm">{table.name}</div>
-        <div className="text-xs opacity-90">{table.schema}</div>
+        <div className="font-bold text-sm text-white">{table.name}</div>
+        <div className="text-xs opacity-90 text-white">{table.schema}</div>
       </div>
 
       {/* Columns */}
@@ -91,7 +100,9 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="font-medium text-sm">{column.name}</span>
+                <span className="font-medium text-sm text-gray-900">
+                  {column.name}
+                </span>
                 {table.primaryKey.includes(column.name) && (
                   <span className="text-xs bg-yellow-200 text-yellow-800 px-1 rounded">
                     PK
@@ -226,7 +237,7 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
 
       {/* Schema legend */}
       <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-xs">
-        <h3 className="font-semibold text-sm text-black mb-2">Schemas</h3>
+        <h3 className="font-semibold text-sm text-gray-900 mb-2">Schemas</h3>
         <div className="space-y-1">
           {data.schemas.map((schema, index) => {
             const colors = [
@@ -244,7 +255,7 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
                   className="w-3 h-3 rounded"
                   style={{ backgroundColor: color }}
                 />
-                <span className="text-sm text-black">{schema}</span>
+                <span className="text-sm text-gray-900">{schema}</span>
               </div>
             );
           })}
