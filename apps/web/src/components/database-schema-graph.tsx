@@ -1,6 +1,9 @@
+// apps/web/src/components/database-schema-graph.tsx
+
+// MODIFIED START: Added Toolbar, ReactFlowProvider, and advanced state management
 "use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -14,41 +17,44 @@ import {
   Handle,
   Position,
   BackgroundVariant,
+  Panel,
+  useReactFlow,
+  ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Key, GripHorizontal, Database } from "lucide-react";
+import {
+  Key,
+  GripHorizontal,
+  Database,
+  Plus,
+  Undo2,
+  Redo2,
+  Hand,
+  MousePointer2,
+  Type,
+  LayoutTemplate,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+} from "lucide-react";
 import { DbSchemaGraph } from "../lib/schemas/dbGraph";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 const customStyles = `
   .react-flow__controls {
-    box-shadow: none;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background-color: var(--card);
-    padding: 2px;
-  }
-  .react-flow__controls button {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--border);
-    width: 28px;
-    height: 28px;
-    color: var(--foreground);
-  }
-  .react-flow__controls button:last-child {
-    border-bottom: none;
-  }
-  .react-flow__controls button:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-  }
-  .react-flow__controls button svg {
-    fill: currentColor !important;
+    display: none; /* Hiding default controls to use our custom toolbar */
   }
   .react-flow__background {
     background-color: var(--background);
   }
-  /* MiniMap styles removed */
   .react-flow__attribution {
     display: none;
   }
@@ -81,12 +87,6 @@ interface Relationship {
   label: string;
 }
 
-interface DatabaseSchema {
-  schemas: string[];
-  nodes: TableNode[];
-  edges: Relationship[];
-}
-
 interface DatabaseSchemaGraphProps {
   data: DbSchemaGraph;
 }
@@ -95,7 +95,7 @@ const TableNodeComponent = ({ data }: { data: { table: TableNode } }) => {
   const { table } = data;
 
   return (
-    <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-shadow hover:shadow-md hover:ring-1 hover:ring-ring/20">
+    <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
       <div className="flex flex-col border-b border-border bg-muted/30 px-4 py-3 first:rounded-t-xl">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -172,7 +172,205 @@ const nodeTypes = {
   table: TableNodeComponent,
 };
 
-export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
+function GraphToolbar({
+  onAddNode,
+  showLabels,
+  setShowLabels,
+  interactionMode,
+  setInteractionMode,
+}: {
+  onAddNode: () => void;
+  showLabels: boolean;
+  setShowLabels: (v: boolean) => void;
+  interactionMode: "pointer" | "hand";
+  setInteractionMode: (v: "pointer" | "hand") => void;
+}) {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  return (
+    <Panel position="bottom-center" className="mb-6 sm:mb-8">
+      <div className="flex items-center gap-1 p-1.5 bg-background/80 backdrop-blur-md border border-border/60 rounded-full shadow-xl supports-[backdrop-filter]:bg-background/60">
+        <TooltipProvider delayDuration={0}>
+          <div className="flex items-center px-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={onAddNode}
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">New Table</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 bg-border/60" />
+
+          <div className="flex items-center px-1 gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground"
+                  onClick={() => {}}
+                >
+                  <Undo2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Undo</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground"
+                  onClick={() => {}}
+                >
+                  <Redo2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Redo</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 bg-border/60" />
+
+          <div className="flex items-center px-1 gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={
+                    interactionMode === "pointer" ? "secondary" : "ghost"
+                  }
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full transition-all",
+                    interactionMode === "pointer" &&
+                      "bg-primary/10 text-primary hover:bg-primary/20",
+                  )}
+                  onClick={() => setInteractionMode("pointer")}
+                >
+                  <MousePointer2 className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Select Tool</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={interactionMode === "hand" ? "secondary" : "ghost"}
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full transition-all",
+                    interactionMode === "hand" &&
+                      "bg-primary/10 text-primary hover:bg-primary/20",
+                  )}
+                  onClick={() => setInteractionMode("hand")}
+                >
+                  <Hand className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Hand Tool</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 bg-border/60" />
+
+          <div className="flex items-center px-1 gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showLabels ? "secondary" : "ghost"}
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full transition-all",
+                    showLabels &&
+                      "bg-primary/10 text-primary hover:bg-primary/20",
+                  )}
+                  onClick={() => setShowLabels(!showLabels)}
+                >
+                  <Type className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {showLabels ? "Hide Labels" : "Show Labels"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={() => {}}
+                >
+                  <LayoutTemplate className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Auto Layout</TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 bg-border/60" />
+
+          <div className="flex items-center px-1 gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={() => zoomOut()}
+                >
+                  <ZoomOut className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Zoom Out</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={() => fitView({ duration: 500 })}
+                >
+                  <Maximize className="size-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Fit View</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={() => zoomIn()}
+                >
+                  <ZoomIn className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Zoom In</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      </div>
+    </Panel>
+  );
+}
+
+function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
+  const [showLabels, setShowLabels] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
+    "pointer",
+  );
+
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
       const schemaIndex = data.schemas.indexOf(table.schema);
@@ -206,7 +404,7 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
       targetHandle: relationship.targetColumn,
       type: "smoothstep",
       animated: true,
-      label: relationship.label,
+      label: showLabels ? relationship.label : undefined,
       labelStyle: {
         fill: "var(--muted-foreground)",
         fontSize: 10,
@@ -233,17 +431,20 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         height: 15,
       },
     }));
-  }, [data.edges]);
+  }, [data.edges, showLabels]);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(() => {}, []);
+  const onAddNode = useCallback(() => {
+    alert("Add Table feature would trigger a modal here.");
+  }, []);
 
   const gridColor = "var(--border)";
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
       <style dangerouslySetInnerHTML={{ __html: customStyles }} />
       <ReactFlow
         nodes={nodes}
@@ -257,18 +458,29 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         fitView
         minZoom={0.1}
         maxZoom={1.5}
+        panOnDrag={interactionMode === "hand" || undefined}
+        selectionOnDrag={interactionMode === "pointer"}
+        nodesDraggable={interactionMode === "pointer"}
+        elementsSelectable={interactionMode === "pointer"}
         fitViewOptions={{
           padding: 0.2,
         }}
+        proOptions={{ hideAttribution: true }}
       >
         <Background
           color={gridColor}
           gap={20}
           size={1}
           variant={BackgroundVariant.Dots}
-          className=""
         />
-        <Controls showInteractive={false} />
+
+        <GraphToolbar
+          onAddNode={onAddNode}
+          showLabels={showLabels}
+          setShowLabels={setShowLabels}
+          interactionMode={interactionMode}
+          setInteractionMode={setInteractionMode}
+        />
       </ReactFlow>
 
       <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
@@ -287,5 +499,13 @@ export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+export function DatabaseSchemaGraph({ data }: DatabaseSchemaGraphProps) {
+  return (
+    <ReactFlowProvider>
+      <DatabaseSchemaGraphContent data={data} />
+    </ReactFlowProvider>
   );
 }
