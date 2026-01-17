@@ -41,6 +41,7 @@ import {
   LayoutGrid,
   Settings,
   Save,
+  ListChecks,
   Loader2,
   X,
 } from "lucide-react";
@@ -56,6 +57,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useApplySchemaChanges } from "@/hooks/use-schema";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
@@ -162,6 +164,8 @@ export default function ProjectView() {
     [],
   );
 
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+
   const mutateSchema = useApplySchemaChanges(id);
   const queryClient = useQueryClient();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -266,12 +270,25 @@ export default function ProjectView() {
       setPendingChanges([]);
       toast.dismiss(toastId);
       toast.success("Schema updated successfully");
+      setIsReviewOpen(false);
     } catch (e) {
       console.error(e);
       toast.dismiss(toastId);
       toast.error("Failed to publish changes");
     } finally {
       setIsPublishing(false);
+    }
+  };
+
+  const handleRemoveChange = (index: number) => {
+    setPendingChanges((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDiscardAll = () => {
+    if (confirm("Are you sure you want to discard all pending changes?")) {
+      setPendingChanges([]);
+      setIsReviewOpen(false);
+      toast.info("All changes discarded");
     }
   };
 
@@ -441,30 +458,13 @@ export default function ProjectView() {
                     {pendingChanges.length} unsaved change
                     {pendingChanges.length !== 1 ? "s" : ""}
                   </Badge>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-xs gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleDiscardChanges}
-                    disabled={isPublishing}
-                  >
-                    <X className="size-3.5" />
-                    Discard
-                  </Button>
-
                   <Button
                     size="sm"
                     className="h-8 text-xs gap-2 bg-foreground text-background hover:bg-foreground/90 shadow-sm"
-                    onClick={handlePublish}
-                    disabled={isPublishing}
+                    onClick={() => setIsReviewOpen(true)}
                   >
-                    {isPublishing ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Save className="size-3.5" />
-                    )}
-                    {isPublishing ? "Publishing..." : "Publish Changes"}
+                    <ListChecks className="size-3.5" />
+                    Review Changes
                   </Button>
                   <SidebarSeparator
                     orientation="vertical"
@@ -520,32 +520,15 @@ export default function ProjectView() {
           targetTable={indexesTable}
         />
 
-        <Dialog
-          open={isDiscardDialogOpen}
-          onOpenChange={setIsDiscardDialogOpen}
-        >
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle>Discard Changes</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to discard all {pendingChanges.length}{" "}
-                pending change{pendingChanges.length !== 1 ? "s" : ""}? This
-                action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDiscardDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={confirmDiscard}>
-                Discard Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ReviewChangesDialog
+          open={isReviewOpen}
+          onOpenChange={setIsReviewOpen}
+          changes={pendingChanges}
+          onRemoveChange={handleRemoveChange}
+          onDiscardAll={handleDiscardAll}
+          onPublish={handlePublish}
+          isPublishing={isPublishing}
+        />
       </div>
     </SidebarProvider>
   );
