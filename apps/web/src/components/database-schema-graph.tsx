@@ -1,6 +1,3 @@
-// apps/web/src/components/database-schema-graph.tsx
-
-// MODIFIED START: Added Toolbar, ReactFlowProvider, and advanced state management
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
@@ -36,6 +33,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize,
+  Loader2,
 } from "lucide-react";
 import { DbSchemaGraph } from "../lib/schemas/dbGraph";
 import { Button } from "@/components/ui/button";
@@ -48,9 +46,143 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+const performAutoLayout = (nodes: Node[], edges: Edge[]) => {
+  const X_SPACING = 80;
+  const Y_SPACING = 120;
+
+  const getDimensions = (node: Node) => {
+    if (node.measured && node.measured.width && node.measured.height) {
+      return {
+        width: node.measured.width,
+        height: node.measured.height,
+      };
+    }
+
+    const tableData = node.data.table as any;
+    const charWidth = 9;
+    const basePadding = 60;
+
+    const maxTableLen = tableData.name.length;
+    const maxColLen = tableData.columns.reduce((max: number, col: any) => {
+      const len = col.name.length + col.type.length + 5;
+      return Math.max(max, len);
+    }, 0);
+
+    const estimatedWidth = Math.max(
+      320,
+      Math.max(maxTableLen, maxColLen) * charWidth + basePadding,
+    );
+
+    const estimatedHeight = 50 + tableData.columns.length * 32 + 20;
+
+    return { width: estimatedWidth, height: estimatedHeight };
+  };
+
+  const adjacency: Record<string, string[]> = {};
+  const inDegree: Record<string, number> = {};
+  const nodeDimensions: Record<string, { width: number; height: number }> = {};
+
+  nodes.forEach((node) => {
+    adjacency[node.id] = [];
+    inDegree[node.id] = 0;
+    nodeDimensions[node.id] = getDimensions(node);
+  });
+
+  edges.forEach((edge) => {
+    if (adjacency[edge.source]) {
+      adjacency[edge.source].push(edge.target);
+      inDegree[edge.target] = (inDegree[edge.target] || 0) + 1;
+    }
+  });
+
+  const levels: Record<string, number> = {};
+  const queue: string[] = [];
+
+  nodes.forEach((node) => {
+    if (inDegree[node.id] === 0) {
+      levels[node.id] = 0;
+      queue.push(node.id);
+    }
+  });
+
+  if (queue.length === 0 && nodes.length > 0) {
+    levels[nodes[0].id] = 0;
+    queue.push(nodes[0].id);
+  }
+
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    if (visited.has(nodeId)) continue;
+    visited.add(nodeId);
+
+    const currentLevel = levels[nodeId];
+    const neighbors = adjacency[nodeId] || [];
+
+    neighbors.forEach((neighborId) => {
+      levels[neighborId] = Math.max(levels[neighborId] || 0, currentLevel + 1);
+      queue.push(neighborId);
+    });
+  }
+
+  nodes.forEach((node) => {
+    if (levels[node.id] === undefined) {
+      levels[node.id] = 0;
+    }
+  });
+
+  const levelGroups: Record<number, Node[]> = {};
+  let maxLevel = 0;
+
+  nodes.forEach((node) => {
+    const lvl = levels[node.id];
+    maxLevel = Math.max(maxLevel, lvl);
+    if (!levelGroups[lvl]) levelGroups[lvl] = [];
+    levelGroups[lvl].push(node);
+  });
+
+  const newNodes = nodes.map((node) => {
+    const lvl = levels[node.id];
+    const group = levelGroups[lvl];
+
+    let rowTotalWidth = 0;
+    group.forEach((n, idx) => {
+      rowTotalWidth += nodeDimensions[n.id].width;
+      if (idx < group.length - 1) rowTotalWidth += X_SPACING;
+    });
+
+    let currentX = -(rowTotalWidth / 2);
+
+    const nodeIndex = group.indexOf(node);
+    for (let i = 0; i < nodeIndex; i++) {
+      currentX += nodeDimensions[group[i].id].width + X_SPACING;
+    }
+
+    let startY = 0;
+    for (let i = 0; i < lvl; i++) {
+      const prevGroup = levelGroups[i] || [];
+      const maxH = Math.max(
+        ...prevGroup.map((n) => nodeDimensions[n.id].height),
+        100,
+      );
+      startY += maxH + Y_SPACING;
+    }
+
+    return {
+      ...node,
+      position: {
+        x: currentX,
+        y: startY,
+      },
+    };
+  });
+
+  return newNodes;
+};
+
 const customStyles = `
   .react-flow__controls {
-    display: none; /* Hiding default controls to use our custom toolbar */
+    display: none; 
   }
   .react-flow__background {
     background-color: var(--background);
@@ -178,12 +310,16 @@ function GraphToolbar({
   setShowLabels,
   interactionMode,
   setInteractionMode,
+  onAutoLayout,
+  isLayouting,
 }: {
   onAddNode: () => void;
   showLabels: boolean;
   setShowLabels: (v: boolean) => void;
   interactionMode: "pointer" | "hand";
   setInteractionMode: (v: "pointer" | "hand") => void;
+  onAutoLayout: () => void;
+  isLayouting: boolean;
 }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
@@ -307,9 +443,14 @@ function GraphToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-full hover:bg-muted"
-                  onClick={() => {}}
+                  onClick={onAutoLayout}
+                  disabled={isLayouting}
                 >
-                  <LayoutTemplate className="size-4" />
+                  {isLayouting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <LayoutTemplate className="size-4" />
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">Auto Layout</TooltipContent>
@@ -370,6 +511,8 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
     "pointer",
   );
+  const [isLayouting, setIsLayouting] = useState(false);
+  const { fitView, getNodes, getEdges: getFlowEdges } = useReactFlow();
 
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
@@ -436,7 +579,7 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
     [],
   );
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(
     getEdges(data.edges, showLabels),
   );
@@ -444,6 +587,24 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
   React.useEffect(() => {
     setEdges(getEdges(data.edges, showLabels));
   }, [showLabels, data.edges, setEdges, getEdges]);
+
+  const handleAutoLayout = useCallback(() => {
+    setIsLayouting(true);
+
+    setTimeout(() => {
+      const currentNodes = getNodes();
+      const currentEdges = getFlowEdges();
+
+      const layoutedNodes = performAutoLayout(currentNodes, currentEdges);
+
+      setNodes([...layoutedNodes]);
+
+      setTimeout(() => {
+        fitView({ duration: 800, padding: 0.2 });
+        setIsLayouting(false);
+      }, 100);
+    }, 50);
+  }, [getNodes, getFlowEdges, setNodes, fitView]);
 
   const onConnect = useCallback(() => {}, []);
   const onAddNode = useCallback(() => {
@@ -489,6 +650,8 @@ function DatabaseSchemaGraphContent({ data }: DatabaseSchemaGraphProps) {
           setShowLabels={setShowLabels}
           interactionMode={interactionMode}
           setInteractionMode={setInteractionMode}
+          onAutoLayout={handleAutoLayout}
+          isLayouting={isLayouting}
         />
       </ReactFlow>
 
