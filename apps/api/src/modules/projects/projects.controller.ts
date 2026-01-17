@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import { getAuthSession } from "../../auth";
 import { projectService } from "./projects.service";
-import knex, { Knex } from "knex";
 
 const DbTypeEnum = t.Union([t.Literal("postgres"), t.Literal("mysql")]);
 
@@ -81,6 +80,36 @@ export const projectsController = new Elysia({ prefix: "/projects" })
     {
       params: t.Object({
         id: t.String(),
+      }),
+    },
+  )
+  .patch(
+    "/:id",
+    async ({ request, params: { id }, body, set }) => {
+      const session = await getAuthSession(request.headers);
+      if (!session) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
+
+      try {
+        const updated = await projectService.update(session.user.id, id, {
+          graphLayout: body.graphLayout,
+        });
+
+        return { success: true, data: updated };
+      } catch (error) {
+        console.error("Project update error:", error);
+        set.status = 500;
+        return { success: false, message: "Failed to update project" };
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: t.Object({
+        graphLayout: t.Optional(t.Any()),
       }),
     },
   );

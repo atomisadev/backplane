@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db";
-import { DatabaseError } from "../../errors";
+import { DatabaseError, NotFoundError } from "../../errors";
 import { encrypt } from "../../lib/crypto";
 import { DbType } from "@prisma/client";
 import knex, { Knex } from "knex";
@@ -166,6 +166,23 @@ export const projectService = {
     }
 
     return project;
+  },
+
+  async update(userId: string, projectId: string, data: { graphLayout?: any }) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.userId !== userId) {
+      throw new NotFoundError("Project not found");
+    }
+
+    return await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        graphLayout: data.graphLayout ?? undefined,
+      },
+    });
   },
 
   async introspectDB(pg: Knex) {},

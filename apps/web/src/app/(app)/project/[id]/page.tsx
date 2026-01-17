@@ -148,6 +148,15 @@ export default function ProjectView() {
     let baseData: DbSchemaGraph;
     try {
       baseData = DbSchemaGraphSchema.parse(project.schemaSnapshot);
+      // MODIFIED START: Pass layout data to schema
+      if (project.graphLayout) {
+        // @ts-ignore
+        baseData.layout = project.graphLayout as Record<
+          string,
+          { x: number; y: number }
+        >;
+      }
+      // MODIFIED END
     } catch (e) {
       console.error("Schema parse error", e);
       return null;

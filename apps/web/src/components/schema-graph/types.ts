@@ -40,4 +40,5 @@ export interface DbSchemaGraphData {
   schemas: string[];
   nodes: TableData[];
   edges: Relationship[];
+  layout?: Record<string, { x: number; y: number }>;
 }
