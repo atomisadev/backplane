@@ -34,6 +34,7 @@ const nodeTypes = {
 interface DatabaseSchemaGraphContentProps {
   data: DbSchemaGraphData;
   onAddColumn?: (schema: string, table: string) => void;
+  onViewIndexes?: (schema: string, table: string) => void;
   currentChanges: PendingChange[];
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }
@@ -41,6 +42,7 @@ interface DatabaseSchemaGraphContentProps {
 function GraphContent({
   data,
   onAddColumn,
+  onViewIndexes,
   currentChanges,
   setChanges,
 }: DatabaseSchemaGraphContentProps) {
@@ -135,7 +137,6 @@ function GraphContent({
         const existingNode = nodeMap.get(table.id);
 
         let position = existingNode?.position;
-
         if (!position) {
           const schemaIndex = data.schemas.indexOf(table.schema);
           const tablesInSchema = data.nodes.filter(
@@ -156,12 +157,13 @@ function GraphContent({
           data: {
             table,
             onAddColumn,
+            onViewIndexes,
           },
           measured: existingNode?.measured,
         };
       });
     });
-  }, [data.nodes, data.schemas, onAddColumn, setNodes]);
+  }, [data.nodes, data.schemas, onAddColumn, onViewIndexes, setNodes]);
 
   const handleAutoLayout = useCallback(() => {
     setIsLayouting(true);
@@ -249,12 +251,14 @@ function GraphContent({
 export function DatabaseSchemaGraph({
   data,
   onAddColumn,
+  onViewIndexes,
   currentChanges,
   setChanges,
 }: {
   data: DbSchemaGraphData;
   currentChanges: PendingChange[];
   onAddColumn?: (schema: string, table: string) => void;
+  onViewIndexes?: (schema: string, table: string) => void;
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }) {
   return (
@@ -262,6 +266,7 @@ export function DatabaseSchemaGraph({
       <GraphContent
         data={data}
         onAddColumn={onAddColumn}
+        onViewIndexes={onViewIndexes}
         currentChanges={currentChanges}
         setChanges={setChanges}
       />

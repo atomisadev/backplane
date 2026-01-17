@@ -38,7 +38,7 @@ export const schemaService = {
         `
         SELECT
           i.relname as index_name,
-          array_agg(a.attname) as columns,
+          array_agg(a.attname)::text[] as columns,
           ix.indisunique as is_unique,
           ix.indisprimary as is_primary,
           am.amname as method

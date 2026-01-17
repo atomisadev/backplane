@@ -7,7 +7,7 @@ interface CreateColumnParams {
   table: string;
   column: {
     name: string;
-    type: string; // "VARCHAR(255)" or "UUID"
+    type: string;
     nullable: boolean;
     defaultValue?: string;
   };

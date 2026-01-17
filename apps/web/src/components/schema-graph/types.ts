@@ -22,6 +22,7 @@ export interface TableData {
 export type SchemaNodeData = {
   table: TableData;
   onAddColumn?: (schema: string, table: string) => void;
+  onViewIndexes?: (schema: string, table: string) => void;
 };
 
 export type SchemaNode = Node<SchemaNodeData, "table">;

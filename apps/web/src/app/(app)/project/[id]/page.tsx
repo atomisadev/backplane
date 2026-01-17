@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useProject } from "@/hooks/use-project";
 import { useParams, useRouter } from "next/navigation";
 import { DatabaseSchemaGraph } from "@/components/database-schema-graph";
@@ -46,10 +40,8 @@ import {
   AddColumnDialog,
   ColumnDefinition,
 } from "./_components/add-column-dialog";
+import { ViewIndexesDialog } from "./_components/view-indexes-dialog";
 import { Badge } from "@/components/ui/badge";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-
-// --- Types ---
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE";
@@ -57,8 +49,6 @@ export type PendingChange = {
   table: string;
   column: ColumnDefinition;
 };
-
-// --- Helper Components ---
 
 function SchemaTreeItem({
   node,
@@ -132,41 +122,26 @@ function SchemaTreeItem({
   );
 }
 
-// --- Main Page Component ---
-
 export default function ProjectView() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { data: project, isLoading, error } = useProject(id);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Modal & Selection State
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [selectedTable, setSelectedTable] = useState<{
     schema: string;
     name: string;
   } | null>(null);
 
-  // const [storedChanges, setStoredChanges] = useLocalStorage<PendingChange[]>(
-  //   id,
-  //   [],
-  // );
-  // Optimistic State Layer
+  const [isViewIndexesOpen, setIsViewIndexesOpen] = useState(false);
+  const [indexesTable, setIndexesTable] = useState<{
+    schema: string;
+    name: string;
+  } | null>(null);
+
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
 
-  // const pendingChangeRef = useRef(pendingChanges);
-
-  // useEffect(() => {
-  //   pendingChangeRef.current = pendingChanges;
-  // }, [pendingChanges]);
-
-  // useEffect(() => {
-  //   return () => {
-  //     setStoredChanges(pendingChangeRef.current);
-  //   };
-  // }, []);
-
-  // --- Derived State (The "Merge" Logic) ---
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
 
@@ -178,10 +153,8 @@ export default function ProjectView() {
       return null;
     }
 
-    // Deep clone to create a mutable draft for the UI
     const clonedData = JSON.parse(JSON.stringify(baseData)) as DbSchemaGraph;
 
-    // Apply pending changes
     pendingChanges.forEach((change) => {
       if (change.type === "CREATE_COLUMN") {
         const node = clonedData.nodes.find(
@@ -225,8 +198,6 @@ export default function ProjectView() {
     return clonedData;
   }, [project, pendingChanges]);
 
-  // --- Handlers ---
-
   const handleQueueColumnAdd = useCallback(
     (colDef: ColumnDefinition) => {
       if (!selectedTable) return;
@@ -249,6 +220,14 @@ export default function ProjectView() {
     setIsAddColumnOpen(true);
   }, []);
 
+  const handleViewIndexesClick = useCallback(
+    (schema: string, table: string) => {
+      setIndexesTable({ schema, name: table });
+      setIsViewIndexesOpen(true);
+    },
+    [],
+  );
+
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
     if (!searchTerm) return mergedSchema.nodes;
@@ -268,8 +247,6 @@ export default function ProjectView() {
     });
     return groups;
   }, [filteredNodes]);
-
-  // --- Render ---
 
   if (isLoading) {
     return (
@@ -297,7 +274,6 @@ export default function ProjectView() {
       style={{ "--sidebar-width": "260px" } as React.CSSProperties}
     >
       <div className="flex h-screen w-full overflow-hidden bg-background">
-        {/* LEFT SIDEBAR: EXPLORER */}
         <Sidebar className="border-r border-border bg-sidebar">
           <SidebarHeader className="border-b border-border/40 p-4">
             <div className="flex items-center gap-3 px-1 mb-2">
@@ -372,9 +348,7 @@ export default function ProjectView() {
           <SidebarRail />
         </Sidebar>
 
-        {/* RIGHT SIDE: CANVAS */}
         <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-muted/5">
-          {/* Header Area */}
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4 z-10 shadow-sm">
             <SidebarTrigger className="-ml-1 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted" />
             <SidebarSeparator orientation="vertical" className="mr-2 h-4" />
@@ -393,7 +367,6 @@ export default function ProjectView() {
             </div>
 
             <div className="ml-auto flex items-center gap-2">
-              {/* Change Management UI */}
               {pendingChanges.length > 0 && (
                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-200 mr-2">
                   <Badge
@@ -445,7 +418,6 @@ export default function ProjectView() {
             </div>
           </header>
 
-          {/* Graph Area */}
           <div className="flex-1 overflow-hidden relative bg-muted/5">
             <div className="absolute inset-0">
               {mergedSchema && (
@@ -454,18 +426,24 @@ export default function ProjectView() {
                   data={mergedSchema}
                   setChanges={setPendingChanges}
                   onAddColumn={handleAddColumnClick}
+                  onViewIndexes={handleViewIndexesClick}
                 />
               )}
             </div>
           </div>
         </SidebarInset>
 
-        {/* Dialog Layer */}
         <AddColumnDialog
           open={isAddColumnOpen}
           onOpenChange={setIsAddColumnOpen}
           targetTable={selectedTable}
           onAdd={handleQueueColumnAdd}
+        />
+
+        <ViewIndexesDialog
+          open={isViewIndexesOpen}
+          onOpenChange={setIsViewIndexesOpen}
+          targetTable={indexesTable}
         />
       </div>
     </SidebarProvider>

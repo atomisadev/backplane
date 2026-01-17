@@ -6,7 +6,7 @@ import { SchemaNode } from "./types";
 import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
-  const { table, onAddColumn } = data;
+  const { table, onAddColumn, onViewIndexes } = data;
 
   return (
     <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
@@ -100,8 +100,6 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
             e.stopPropagation();
             if (onAddColumn) {
               onAddColumn(table.schema, table.name);
-            } else {
-              alert(`Add column to ${table.name}`);
             }
           }}
         >
@@ -115,7 +113,9 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
           className="nodrag h-7 flex-1 text-[10px] font-medium text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm border border-transparent hover:border-border/50 transition-all"
           onClick={(e) => {
             e.stopPropagation();
-            alert(`View indexes for ${table.name}`);
+            if (onViewIndexes) {
+              onViewIndexes(table.schema, table.name);
+            }
           }}
         >
           <List className="mr-1.5 size-3" />
