@@ -61,14 +61,16 @@ function GraphContent({
   const [isLayouting, setIsLayouting] = useState(false);
   const { id: projectId } = useParams() as { id: string };
 
-  const { fitView, getNodes, getEdges: getFlowEdges } = useReactFlow();
-  // MODIFIED START: Hook for saving
+  const {
+    fitView,
+    getNodes,
+    getEdges: getFlowEdges,
+    getViewport,
+  } = useReactFlow();
   const { saveLayout, isSaving } = useSaveLayout(projectId);
-  // MODIFIED END
 
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
-      // MODIFIED START: Check for stored layout first
       if (data.layout && data.layout[table.id]) {
         return {
           id: table.id,
@@ -80,9 +82,7 @@ function GraphContent({
           },
         };
       }
-      // MODIFIED END
 
-      // Fallback calculation
       const schemaIndex = data.schemas.indexOf(table.schema);
       const tablesInSchema = data.nodes.filter(
         (n) => n.schema === table.schema,
@@ -104,7 +104,7 @@ function GraphContent({
         },
       };
     });
-  }, []); // Run once on mount
+  }, []);
 
   const getEdges = useCallback(
     (edgesData: Relationship[], show: boolean): Edge[] => {
@@ -152,38 +152,43 @@ function GraphContent({
     getEdges(data.edges, showLabels),
   );
 
-  // MODIFIED START: Intercept nodes change to save layout
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       onNodesChangeOriginal(changes);
 
-      // Check if any change implies movement by user dragging
       const isDragging = changes.some(
         (c) => c.type === "position" && c.dragging,
       );
 
       if (isDragging) {
-        // We rely on the effect below to capture the state update
       }
     },
     [onNodesChangeOriginal],
   );
 
   useEffect(() => {
-    // Only save if nodes exist and we are not currently auto-layouting
-    // The hook inside handles debouncing
     if (nodes.length > 0 && !isLayouting) {
       saveLayout(nodes);
     }
   }, [nodes, saveLayout, isLayouting]);
-  // MODIFIED END
 
   useEffect(() => {
     setEdges(getEdges(data.edges, showLabels));
   }, [showLabels, data.edges, setEdges, getEdges]);
 
-  // Update nodes when data changes (e.g. adding columns) but try to preserve positions
   useEffect(() => {
+    let insertPos = null;
+    if (typeof window !== "undefined") {
+      const { x, y, zoom } = getViewport();
+      const width = window.innerWidth - 260;
+      const height = window.innerHeight - 48;
+
+      insertPos = {
+        x: (-x + width / 2) / zoom,
+        y: (-y + height / 2) / zoom,
+      };
+    }
+
     setNodes((currentNodes) => {
       const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
 
@@ -192,20 +197,28 @@ function GraphContent({
 
         let position = existingNode?.position;
         if (!position) {
-          // New node or reset: check layout prop first
           if (data.layout && data.layout[table.id]) {
             position = data.layout[table.id];
           } else {
-            const schemaIndex = data.schemas.indexOf(table.schema);
-            const tablesInSchema = data.nodes.filter(
-              (n) => n.schema === table.schema,
-            );
-            const idx = tablesInSchema.findIndex((t) => t.id === table.id);
+            if (currentNodes.length > 0 && insertPos) {
+              position = {
+                x: insertPos.x - 140,
+                y: insertPos.y - 100,
+              };
+            } else {
+              const schemaIndex = data.schemas.indexOf(table.schema);
+              const sIdx = schemaIndex === -1 ? 0 : schemaIndex;
 
-            position = {
-              x: schemaIndex * 450 + (idx % 2) * 50,
-              y: Math.floor(idx / 2) * 350 + schemaIndex * 100,
-            };
+              const tablesInSchema = data.nodes.filter(
+                (n) => n.schema === table.schema,
+              );
+              const idx = tablesInSchema.findIndex((t) => t.id === table.id);
+
+              position = {
+                x: sIdx * 450 + (idx % 2) * 50,
+                y: Math.floor(idx / 2) * 350 + sIdx * 100,
+              };
+            }
           }
         }
 
@@ -229,6 +242,7 @@ function GraphContent({
     onAddColumn,
     onViewIndexes,
     setNodes,
+    getViewport,
   ]);
 
   const handleAutoLayout = useCallback(() => {
@@ -241,9 +255,7 @@ function GraphContent({
       const layoutedNodes = performAutoLayout(currentNodes, currentEdges);
 
       setNodes([...layoutedNodes]);
-      // MODIFIED START: Save immediately after auto layout
       saveLayout(layoutedNodes);
-      // MODIFIED END
 
       setTimeout(() => {
         fitView({ duration: 800, padding: 0.2 });
@@ -253,7 +265,7 @@ function GraphContent({
   }, [getNodes, getFlowEdges, setNodes, fitView, saveLayout]);
 
   const onAddNode = useCallback(() => {
-    alert("Add Table feature would trigger a modal here.");
+    // alert("Add Table feature would trigger a modal here.");
   }, []);
 
   return (
@@ -297,7 +309,6 @@ function GraphContent({
           isLayouting={isLayouting}
         />
 
-        {/* MODIFIED START: Saving indicator */}
         <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
           {isSaving && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur border border-border rounded-full shadow-sm text-xs text-muted-foreground animate-in fade-in zoom-in slide-in-from-bottom-2">
@@ -306,7 +317,6 @@ function GraphContent({
             </div>
           )}
         </div>
-        {/* MODIFIED END */}
 
         <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
           <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
