@@ -26,16 +26,43 @@ export function CreateProjectSheet() {
     dbType: "postgres" as "postgres" | "mysql",
     connectionUri: "",
   });
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createProject.mutateAsync({
-      name: formData.name,
-      db_type: formData.dbType,
-      connection_uri: formData.connectionUri,
-    });
-    setOpen(false);
-    setFormData({ name: "", dbType: "postgres", connectionUri: "" });
+    setError(null);
+
+    const uri = formData.connectionUri.trim();
+
+    if (formData.dbType === "postgres") {
+      if (!(uri.startsWith("postgresql://") || uri.startsWith("postgres://"))) {
+        setError(
+          'Postgres connection strings must start with "postgresql://" or "postgres://"',
+        );
+        return;
+      }
+    } else {
+      if (!(uri.startsWith("mysql://") || uri.startsWith("mysql2://"))) {
+        setError(
+          'MySQL connection strings must start with "mysql://" or "mysql2://"',
+        );
+        return;
+      }
+    }
+
+    try {
+      await createProject.mutateAsync({
+        name: formData.name,
+        db_type: formData.dbType,
+        connection_uri: uri,
+      });
+      setOpen(false);
+      setFormData({ name: "", dbType: "postgres", connectionUri: "" });
+    } catch (err) {
+      setError(
+        "Failed to create project. Check the connection string and try again.",
+      );
+    }
   };
 
   return (
@@ -107,17 +134,33 @@ export function CreateProjectSheet() {
               <Input
                 id="uri"
                 type="password"
-                placeholder="postgresql://user:password@host..."
-                value={formData.connectionUri}
-                onChange={(e) =>
-                  setFormData({ ...formData, connectionUri: e.target.value })
+                placeholder={
+                  formData.dbType === "postgres"
+                    ? "postgresql://user:password@host:5432/dbname"
+                    : "mysql://user:password@host:3306/dbname"
                 }
+                value={formData.connectionUri}
+                onChange={(e) => {
+                  setFormData({ ...formData, connectionUri: e.target.value });
+                  setError(null);
+                }}
                 required
                 className="font-mono text-xs bg-muted/30"
               />
               <p className="text-[10px] text-muted-foreground">
                 Credentials are encrypted with AES-256-GCM before storage.
               </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Expected prefix:{" "}
+                <span className="font-mono">
+                  {formData.dbType === "postgres"
+                    ? "postgresql:// or postgres://"
+                    : "mysql:// or mysql2://"}
+                </span>
+              </p>
+              {error && (
+                <p className="text-xs text-destructive mt-2">{error}</p>
+              )}
             </div>
           </div>
 
