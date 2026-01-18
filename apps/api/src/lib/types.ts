@@ -18,6 +18,14 @@ export const ChangesDefinition = t.Array(
         defaultValue: t.Optional(t.String()),
       }),
     ),
+    oldColumn: t.Optional(
+      t.Object({
+        name: t.String(),
+        type: t.String(),
+        nullable: t.Boolean(),
+        defaultValue: t.Optional(t.String()),
+      }),
+    ),
   }),
 );
 

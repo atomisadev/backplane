@@ -35,6 +35,7 @@ export type SchemaNodeData = {
     columns: ColumnDefinition[],
   ) => void;
   onDeleteTable?: (id: string) => void;
+  onColumnClick?: (table: TableData, column: ColumnDefinition) => void;
 };
 
 export type PendingChange = {
@@ -42,6 +43,8 @@ export type PendingChange = {
   schema: string;
   table: string;
   column?: ColumnDefinition;
+  defaultValue?: boolean;
+  oldColumn?: ColumnDefinition;
 };
 
 export type SchemaNode = Node<SchemaNodeData, "table">;

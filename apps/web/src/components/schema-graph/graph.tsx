@@ -20,6 +20,7 @@ import {
   ColumnDefinition,
   DbSchemaGraphData,
   Relationship,
+  TableData,
 } from "../../lib/types";
 import { TableNode } from "./table-node";
 import { GraphToolbar } from "./toolbar";
@@ -46,6 +47,7 @@ interface DatabaseSchemaGraphContentProps {
     table: string,
     columns: ColumnDefinition[],
   ) => void;
+  onColumnClick: (table: TableData, column: ColumnDefinition) => void;
   onDeleteTable: (id: string) => void;
   currentChanges: PendingChange[];
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
@@ -56,6 +58,7 @@ function GraphContent({
   onAddColumn,
   onViewIndexes,
   onDeleteTable,
+  onColumnClick,
   currentChanges,
   setChanges,
 }: DatabaseSchemaGraphContentProps) {
@@ -86,6 +89,7 @@ function GraphContent({
             onDeleteTable,
             onViewIndexes,
             onAddColumn,
+            onColumnClick,
           },
         };
       }
@@ -110,6 +114,7 @@ function GraphContent({
           onAddColumn,
           onViewIndexes,
           onDeleteTable,
+          onColumnClick,
         },
       };
     });
@@ -240,6 +245,7 @@ function GraphContent({
             onAddColumn,
             onViewIndexes,
             onDeleteTable,
+            onColumnClick,
           },
           measured: existingNode?.measured,
         };
@@ -355,6 +361,7 @@ export function DatabaseSchemaGraph({
   onViewIndexes,
   onDeleteTable,
   currentChanges,
+  onColumnClick,
   setChanges,
 }: {
   data: DbSchemaGraphData;
@@ -366,12 +373,14 @@ export function DatabaseSchemaGraph({
     columns: ColumnDefinition[],
   ) => void;
   onDeleteTable: (id: string) => void;
+  onColumnClick: (table: TableData, column: ColumnDefinition) => void;
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
 }) {
   return (
     <ReactFlowProvider>
       <GraphContent
         data={data}
+        onColumnClick={onColumnClick}
         onDeleteTable={onDeleteTable}
         onAddColumn={onAddColumn}
         onViewIndexes={onViewIndexes}

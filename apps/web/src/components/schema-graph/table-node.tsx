@@ -1,12 +1,13 @@
-import React, { memo, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react";
 import { Key, Database, Plus, List, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SchemaNode } from "../../lib/types";
+import { SchemaNode, ColumnDefinition } from "../../lib/types";
 import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
-  const { table, onAddColumn, onViewIndexes, onDeleteTable } = data;
+  const { table, onAddColumn, onViewIndexes, onDeleteTable, onColumnClick } =
+    data;
   const { fitView } = useReactFlow();
 
   const sortedColumns = useMemo(() => {
@@ -75,6 +76,12 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
         {sortedColumns.map((column) => {
           const isPk = table.primaryKey.includes(column.name);
           const isPending = column.isPending;
+          const columnDef: ColumnDefinition = {
+            name: column.name,
+            type: column.type,
+            nullable: column.nullable,
+            defaultValue: column.default ?? undefined,
+          };
           return (
             <div
               key={column.name}
@@ -85,6 +92,9 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
                   : "hover:bg-muted/50",
                 isPk && !isPending && "bg-primary/5",
               )}
+              onClick={() => {
+                if (onColumnClick) onColumnClick(table, columnDef);
+              }}
             >
               <Handle
                 id={column.name}

@@ -97,6 +97,28 @@ export function ReviewChangesDialog({
                               {change.table}
                             </span>
                           </>
+                        ) : change.type === "UPDATE_COLUMN" ? (
+                          <>
+                            <Columns className="size-3.5 text-muted-foreground/50" />
+                            <span className="text-muted-foreground">
+                              Edit column
+                            </span>
+                            <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                              {change.oldColumn?.name || "unknown"}
+                            </code>
+                            <span className="text-muted-foreground text-xs">
+                              in
+                            </span>
+                            <span className="font-mono text-muted-foreground/80">
+                              {change.table}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                              to
+                            </span>
+                            <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                              {change.column?.name || "unknown"}
+                            </code>
+                          </>
                         ) : (
                           <>
                             <Columns className="size-3.5 text-muted-foreground/50" />

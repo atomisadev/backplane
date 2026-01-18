@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
@@ -12,50 +12,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ColumnDefinition } from "@/lib/types";
+import type { ColumnDefinition, TableData } from "@/lib/types";
 
 import {
-  POSTGRES_TYPES,
-  NEEDS_LENGTH,
-  makeAddColumnSchema,
-  type AddColumnFormValues,
-} from "@/lib/schemas/addColumnSchema";
+  makeEditColumnSchema,
+  type EditColumnFormValues,
+} from "@/lib/schemas/editColumnSchema";
 
-interface AddColumnDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  targetTable: {
-    schema: string;
-    name: string;
-    columns: ColumnDefinition[];
-  } | null;
-
-  onAdd: (column: ColumnDefinition) => void;
+interface EditColumnSheetProps {
+  sheetOpen: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  columnInfo: {
+    table: TableData;
+    column: ColumnDefinition;
+  };
+  updateColumn: (
+    name: string,
+    schema: string,
+    column: ColumnDefinition,
+  ) => void;
 }
 
-export function AddColumnDialog({
-  open,
-  onOpenChange,
-  targetTable,
-  onAdd,
-}: AddColumnDialogProps) {
-  const existingColumns = targetTable?.columns.map((c) => c.name.toLowerCase());
-  const schema = useMemo(
-    () => makeAddColumnSchema(existingColumns ?? []),
-    [existingColumns],
+export default function EditColumnSheet({
+  sheetOpen,
+  setOpen,
+  columnInfo: { table, column },
+  updateColumn,
+}: EditColumnSheetProps) {
+  const existingColumns = useMemo(
+    () => table.columns.map((c) => c.name),
+    [table.columns],
+  );
+
+  const zodSchema = useMemo(
+    () => makeEditColumnSchema(existingColumns, column),
+    [existingColumns, column.name, column.nullable, column.defaultValue],
   );
 
   const {
@@ -63,72 +61,57 @@ export function AddColumnDialog({
     control,
     handleSubmit,
     reset,
-    watch,
-    formState: { errors, isValid, isSubmitting },
-  } = useForm<AddColumnFormValues>({
-    resolver: zodResolver(schema),
+    formState: { errors, isValid, isSubmitting, isDirty },
+  } = useForm<EditColumnFormValues>({
+    resolver: zodResolver(zodSchema),
     mode: "onChange",
     defaultValues: {
       name: "",
-      type: "VARCHAR",
-      length: "255",
       isNullable: true,
       defaultValue: "",
     },
   });
 
+  const isNullable = useWatch({ control, name: "isNullable" });
+
   useEffect(() => {
-    if (open) {
-      reset({
-        name: "",
-        type: "VARCHAR",
-        length: "255",
-        isNullable: true,
-        defaultValue: "",
-      });
-    }
-  }, [open, reset]);
+    if (!sheetOpen) return;
 
-  const selectedType = watch("type");
-  const needsLength = NEEDS_LENGTH.has(selectedType);
-  const isNullable = watch("isNullable");
+    reset({
+      name: column.name ?? "",
+      isNullable: column.nullable ?? true,
+      defaultValue: column.defaultValue ?? "",
+    });
+  }, [sheetOpen, column, reset]);
 
-  const onValid = (values: AddColumnFormValues) => {
-    let sqlType = values.type;
-
-    if (NEEDS_LENGTH.has(values.type)) {
-      sqlType = `${values.type}(${(values.length ?? "").trim()})`;
-    }
-
-    onAdd({
+  const onValid = (values: EditColumnFormValues) => {
+    const updated: ColumnDefinition = {
+      ...column,
       name: values.name.trim(),
-      type: sqlType,
       nullable: values.isNullable,
       defaultValue: values.defaultValue?.trim()
         ? values.defaultValue.trim()
         : undefined,
-    });
+    };
 
-    onOpenChange(false);
+    updateColumn(table.name, table.schema, updated);
+    setOpen(false);
   };
 
   const topError =
-    errors.name?.message ||
-    errors.type?.message ||
-    errors.length?.message ||
-    undefined;
+    errors.name?.message || errors.defaultValue?.message || undefined;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={sheetOpen} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[440px] gap-0 p-0 overflow-hidden border-border/60 shadow-2xl bg-background/95 backdrop-blur-xl">
         <form onSubmit={handleSubmit(onValid)}>
           <DialogHeader className="px-6 py-5 border-b border-border/40 bg-muted/5">
             <DialogTitle className="text-lg font-semibold tracking-tight">
-              Add Column
+              Edit Column
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground pt-1 flex items-center gap-2">
               <span className="flex h-1.5 w-1.5 rounded-full bg-primary/50" />
-              {targetTable?.schema}.{targetTable?.name}
+              {table.schema}.{table.name}
             </DialogDescription>
           </DialogHeader>
 
@@ -149,7 +132,6 @@ export function AddColumnDialog({
               </Label>
               <Input
                 id="col-name"
-                placeholder="e.g. is_active"
                 className="text-sm bg-muted/20 border-border/60 focus:bg-background transition-all"
                 autoFocus
                 {...register("name")}
@@ -158,72 +140,6 @@ export function AddColumnDialog({
                 <p className="text-xs text-destructive">
                   {errors.name.message}
                 </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-5 gap-4">
-              <div
-                className={cn(
-                  "space-y-2",
-                  needsLength ? "col-span-3" : "col-span-5",
-                )}
-              >
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Data Type <span className="text-destructive">*</span>
-                </Label>
-
-                <Controller
-                  control={control}
-                  name="type"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="text-xs h-9 bg-muted/20 border-border/60">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {POSTGRES_TYPES.map((group) => (
-                          <React.Fragment key={group.label}>
-                            <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground/50">
-                              {group.label}
-                            </div>
-                            {group.options.map((t) => (
-                              <SelectItem
-                                key={t}
-                                value={t}
-                                className="text-xs pl-4"
-                              >
-                                {t}
-                              </SelectItem>
-                            ))}
-                          </React.Fragment>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-
-                {errors.type && (
-                  <p className="text-xs text-destructive">
-                    {errors.type.message}
-                  </p>
-                )}
-              </div>
-
-              {needsLength && (
-                <div className="col-span-2 space-y-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                  <Label className="text-xs font-medium text-muted-foreground">
-                    Length
-                  </Label>
-                  <Input
-                    className="text-sm h-9 bg-muted/20 border-border/60"
-                    {...register("length")}
-                  />
-                  {errors.length && (
-                    <p className="text-xs text-destructive">
-                      {errors.length.message}
-                    </p>
-                  )}
-                </div>
               )}
             </div>
 
@@ -255,7 +171,7 @@ export function AddColumnDialog({
                 <div className="grid gap-1 leading-none">
                   <label
                     htmlFor="not-null"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    className="text-sm font-medium leading-none"
                   >
                     NOT NULL
                   </label>
@@ -286,7 +202,7 @@ export function AddColumnDialog({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => onOpenChange(false)}
+              onClick={() => setOpen(false)}
               className="h-8 text-xs"
             >
               Cancel
@@ -295,9 +211,9 @@ export function AddColumnDialog({
             <Button
               type="submit"
               className="h-8 text-xs font-medium gap-2"
-              disabled={!isValid || isSubmitting}
+              disabled={!isValid || !isDirty || isSubmitting}
             >
-              Add Column
+              Save
             </Button>
           </DialogFooter>
         </form>

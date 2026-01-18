@@ -127,7 +127,7 @@ export const schemaService = {
     changes: ChangesDefinitionType,
     projectId: string,
   ) {
-    for (const { type, schema, column, table } of changes) {
+    for (const { type, schema, column, table, oldColumn } of changes) {
       if (type === "CREATE_COLUMN" && column) {
         try {
           await pg.schema.withSchema(schema).table(table, (t) => {
@@ -172,6 +172,63 @@ export const schemaService = {
         } catch (error) {
           console.error("Failed to create table:", error);
           throw new DatabaseError("Failed to create table", error);
+        }
+      } else if (type === "UPDATE_COLUMN" && column && oldColumn) {
+        try {
+          if (oldColumn.name !== column.name) {
+            await pg.schema.withSchema(schema).alterTable(table, (newTable) => {
+              newTable.renameColumn(oldColumn.name, column.name);
+            });
+          }
+
+          if (oldColumn.nullable !== column.nullable) {
+            if (column.nullable) {
+              await pg.schema
+                .withSchema(schema)
+                .alterTable(table, (newTable) => {
+                  newTable.setNullable(column.name);
+                });
+            } else {
+              await pg.schema
+                .withSchema(schema)
+                .alterTable(table, (newTable) => {
+                  newTable.dropNullable(column.name);
+                });
+            }
+          }
+
+          const oldDefault = oldColumn.defaultValue?.trim() || null;
+          const newDefault = column.defaultValue?.trim() || null;
+
+          if (oldDefault !== newDefault) {
+            if (newDefault) {
+              const looksLikeExpression =
+                /[()]/.test(newDefault) ||
+                /\bnow\b|\bcurrent_timestamp\b|\bgen_random_uuid\b|\buuid_generate_v4\b/i.test(
+                  newDefault,
+                );
+
+              if (looksLikeExpression) {
+                await pg.raw(
+                  "ALTER TABLE ??.?? ALTER COLUMN ?? SET DEFAULT ??",
+                  [schema, table, column.name, newDefault], // defaultValue as a literal
+                );
+              } else {
+                await pg.raw(
+                  "ALTER TABLE ??.?? ALTER COLUMN ?? SET DEFAULT ??",
+                  [schema, table, column.name, newDefault.replace(/'/g, "''")], // defaultValue as a literal
+                );
+              }
+            } else {
+              await pg.raw(`ALTER TABLE ?? ALTER COLUMN ?? DROP DEFAULT`, [
+                table,
+                column.name,
+              ]);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to update column:", error);
+          throw new DatabaseError("Failed to update column", error);
         }
       } else if (type === "DROP_TABLE") {
         try {

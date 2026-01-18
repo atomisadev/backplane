@@ -49,117 +49,15 @@ import { toast } from "sonner";
 import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 import RemoveTableDialog from "./_components/remove-table-dialog";
 import { ColumnDefinition, PendingChange } from "@/lib/types";
-
-function SchemaTreeItem({
-  node,
-  level = 0,
-  onSelect,
-  isHidden,
-  onToggleVisibility,
-}: {
-  node: any;
-  level?: number;
-  onSelect?: (nodeId: string) => void;
-  isHidden: boolean;
-  onToggleVisibility: (id: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const hasColumns = node.columns && node.columns.length > 0;
-
-  return (
-    <div className="select-none group/item relative">
-      <SidebarMenuButton
-        onClick={() => {
-          if (hasColumns) setIsOpen(!isOpen);
-          onSelect?.(node.id);
-        }}
-        className={cn(
-          "h-7 text-sm group pr-8",
-          level > 0 && "pl-8",
-          isHidden && "opacity-50 grayscale",
-        )}
-      >
-        {hasColumns ? (
-          <ChevronRight
-            className={cn(
-              "size-3.5 transition-transform text-muted-foreground/50 group-hover:text-foreground",
-              isOpen && "rotate-90",
-            )}
-          />
-        ) : (
-          <div className="size-3.5" />
-        )}
-        <TableIcon className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-        <span className="truncate">{node.name}</span>
-        {node.schema && (
-          <span className="ml-auto text-[10px] text-muted-foreground/40 font-mono">
-            {node.schema}
-          </span>
-        )}
-      </SidebarMenuButton>
-
-      <div
-        className={cn(
-          "absolute right-1 top-1",
-          isHidden ? "flex" : "hidden group-hover/item:flex",
-        )}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 rounded-sm hover:bg-background hover:text-foreground text-muted-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleVisibility(node.id);
-          }}
-        >
-          {isHidden ? (
-            <EyeOff className="size-3" />
-          ) : (
-            <Eye className="size-3" />
-          )}
-        </Button>
-      </div>
-
-      {isOpen && hasColumns && !isHidden && (
-        <div className="border-l border-border/40 ml-[1.15rem] pl-1 my-0.5 space-y-[1px]">
-          {node.columns.map((col: any) => (
-            <SidebarMenuButton
-              key={col.name}
-              className="h-6 text-xs pl-6 font-mono text-muted-foreground hover:text-foreground"
-            >
-              {node.primaryKey.includes(col.name) ? (
-                <Key className="size-3 text-amber-500 mr-2 shrink-0" />
-              ) : col.isPending ? (
-                <div className="size-1.5 rounded-full bg-green-500 mr-2 shrink-0 animate-pulse" />
-              ) : (
-                <Columns className="size-3 mr-2 opacity-30 shrink-0" />
-              )}
-              <span
-                className={cn(
-                  "truncate opacity-80",
-                  col.isPending &&
-                    "text-green-600 dark:text-green-400 font-medium",
-                )}
-              >
-                {col.name}
-              </span>
-              <span className="ml-auto text-[9px] opacity-40">{col.type}</span>
-            </SidebarMenuButton>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { SchemaTreeItem } from "./_components/schema-tree-item";
+import EditColumnSheet from "./_components/edit-column-sheet";
+import { TableData } from "../../../../lib/types";
 
 export default function ProjectView() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { data: project, isLoading, error } = useProject(id);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [selectedTable, setSelectedTable] = useState<{
     schema: string;
     name: string;
@@ -172,18 +70,14 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  console.log("ProjectID: ", id);
-  console.log(project);
-
-  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+  // console.log("ProjectID: ", id);
+  // console.log(project);
 
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
   );
-
   const [hiddenTableIds, setHiddenTableIds] = useState<Set<string>>(new Set());
-
   const toggleTableVisibility = useCallback((nodeId: string) => {
     setHiddenTableIds((prev) => {
       const next = new Set(prev);
@@ -197,13 +91,29 @@ export default function ProjectView() {
   }, []);
 
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+  const [columnSheetOpen, setColumnSheetOpen] = useState(false);
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+
   const [removeID, setRemoveID] = useState("");
+  const [columnInfo, setColumnInfo] = useState<{
+    table: TableData;
+    column: ColumnDefinition;
+  }>({
+    table: {
+      id: "",
+      schema: "",
+      name: "",
+      type: "",
+      primaryKey: [],
+      columns: [],
+    },
+    column: { name: "", type: "", nullable: false },
+  });
 
   const mutateSchema = useApplySchemaChanges(id);
   const queryClient = useQueryClient();
-  const [isPublishing, setIsPublishing] = useState(false);
-
-  const [isRemoveOpen, setIsRemoveOpen] = useState(false);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -277,6 +187,28 @@ export default function ProjectView() {
             },
           ],
         });
+      } else if (change.type === "UPDATE_COLUMN" && change.column) {
+        const node = clonedData.nodes.find(
+          (n) => n.schema === change.schema && n.name === change.table,
+        );
+        if (node) {
+          const column = node.columns.find(
+            (n) => n.name === change.oldColumn?.name,
+          );
+          if (column) {
+            column.name = change.column.name;
+            column.nullable = change.column.nullable;
+            column.default = change.column.defaultValue ?? null;
+
+            node.primaryKey = node.primaryKey.map((s) =>
+              s === change.oldColumn?.name ? column.name : s,
+            );
+            // @ts-ignore
+            column.isPending = true;
+          }
+          // console.log("Mutated columns: ", column);
+          // console.log("Previous name: ", change.schema);
+        }
       }
     });
 
@@ -416,6 +348,29 @@ export default function ProjectView() {
     setIsRemoveOpen(false);
   };
 
+  const handleColumnClick = (table: TableData, column: ColumnDefinition) => {
+    setColumnInfo({ table, column });
+    setColumnSheetOpen(true);
+  };
+
+  const handleColumnUpdate = (
+    name: string,
+    schema: string,
+    column: ColumnDefinition,
+  ) => {
+    setPendingChanges([
+      ...pendingChanges,
+      {
+        type: "UPDATE_COLUMN",
+        table: name,
+        schema,
+        column,
+        oldColumn: columnInfo.column,
+      },
+    ]);
+    // console.log(columnInfo);
+  };
+
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
     if (!searchTerm) return mergedSchema.nodes;
@@ -513,6 +468,7 @@ export default function ProjectView() {
                           <SidebarMenuItem key={node.id}>
                             <SchemaTreeItem
                               node={node}
+                              onColumnClick={handleColumnClick}
                               isHidden={hiddenTableIds.has(node.id)}
                               onToggleVisibility={toggleTableVisibility}
                             />
@@ -606,6 +562,7 @@ export default function ProjectView() {
             <div className="absolute inset-0">
               {graphSchema && (
                 <DatabaseSchemaGraph
+                  onColumnClick={handleColumnClick}
                   currentChanges={pendingChanges}
                   data={graphSchema}
                   setChanges={setPendingChanges}
@@ -644,6 +601,12 @@ export default function ProjectView() {
           open={isRemoveOpen}
           setOpen={setIsRemoveOpen}
           handleDeleteTable={handleDeleteTable}
+        />
+        <EditColumnSheet
+          columnInfo={columnInfo}
+          sheetOpen={columnSheetOpen}
+          setOpen={setColumnSheetOpen}
+          updateColumn={handleColumnUpdate}
         />
       </div>
     </SidebarProvider>
