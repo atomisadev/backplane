@@ -66,6 +66,8 @@ import {
   useMyPresence,
   useStorage,
   useMutation,
+  useBroadcastEvent,
+  useEventListener,
 } from "@/lib/liveblocks";
 
 import { ShareDialog } from "./_components/share-dialog";
@@ -86,34 +88,19 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
   const { data: session } = authClient.useSession();
 
   const [myPresence, updateMyPresence] = useMyPresence();
+  const broadcast = useBroadcastEvent();
+
+  useEventListener(({ event }) => {
+    if (event.type === "SCHEMA_PUBLISHED") {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-indexes", projectId],
+      });
+      toast.info("Schema updated by another user");
+    }
+  });
 
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-
-  // Cursor tracking (presence)
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      updateMyPresence({
-        cursor: { x: e.clientX, y: e.clientY },
-        user: {
-          name: session?.user?.name || "Anonymous",
-          email: session?.user?.email || "",
-          avatar: session?.user?.image || "",
-        },
-      });
-    };
-
-    const handleMouseLeave = () => {
-      updateMyPresence({ cursor: null });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseleave", handleMouseLeave);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [updateMyPresence, session]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTable, setSelectedTable] = useState<{
@@ -378,6 +365,7 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
       });
       setPendingChanges([]);
       clearHistory();
+      broadcast({ type: "SCHEMA_PUBLISHED" });
       toast.dismiss(toastId);
       toast.success("Schema updated successfully");
       setIsReviewOpen(false);
@@ -662,7 +650,9 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
                   variant="ghost"
                   size="icon-sm"
                   className="h-7 w-7 rounded-md hover:bg-muted"
-                  onClick={() => {setIsShareDialogOpen(true)}}
+                  onClick={() => {
+                    setIsShareDialogOpen(true);
+                  }}
                 >
                   <Settings className="size-3.5 text-muted-foreground" />
                 </Button>
@@ -783,8 +773,6 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
           onOpenChange={setIsShareDialogOpen}
           projectId={projectId}
         />
-
-        <CollaborativeCursors />
       </div>
     </SidebarProvider>
   );
@@ -809,6 +797,7 @@ export default function ProjectView() {
       }}
       initialStorage={{
         pendingChanges: [],
+        nodePositions: {},
       }}
     >
       <ProjectViewInner projectId={id} />

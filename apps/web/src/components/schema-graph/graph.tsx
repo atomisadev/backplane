@@ -28,6 +28,9 @@ import { performAutoLayout } from "./layout-engine";
 import { useSaveLayout } from "@/app/(app)/project/[id]/_hooks/use-save-layout";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useUpdateMyPresence, useStorage, useMutation } from "@/lib/liveblocks";
+import { CollaborativeCursors } from "@/app/(app)/project/[id]/_components/collaborative-cursors";
+import { authClient } from "@/lib/auth-client";
 
 const customStyles = `
   .react-flow__controls { display: none; }
@@ -82,8 +85,31 @@ function GraphContent({
     getNodes,
     getEdges: getFlowEdges,
     getViewport,
+    screenToFlowPosition,
   } = useReactFlow();
   const { saveLayout, isSaving } = useSaveLayout(projectId);
+  const updateMyPresence = useUpdateMyPresence();
+  const { data: session } = authClient.useSession();
+
+  const liveNodePositions = useStorage((root) => root.nodePositions);
+
+  const updateNodePosition = useMutation(
+    ({ storage }, nodeId: string, x: number, y: number) => {
+      const positions = storage.get("nodePositions") as any;
+      if (!positions) return;
+      storage.set("nodePositions", { ...positions, [nodeId]: { x, y } });
+    },
+    [],
+  );
+
+  const updateMultipleNodePositions = useMutation(
+    ({ storage }, newPositions: Record<string, { x: number; y: number }>) => {
+      const positions = storage.get("nodePositions") as any;
+      if (!positions) return;
+      storage.set("nodePositions", { ...positions, ...newPositions });
+    },
+    [],
+  );
 
   const initialNodes: Node[] = useMemo(() => {
     return data.nodes.map((table) => {
@@ -174,19 +200,60 @@ function GraphContent({
     getEdges(data.edges, showLabels),
   );
 
+  useEffect(() => {
+    if (!liveNodePositions) return;
+
+    setNodes((nds) =>
+      nds.map((node) => {
+        const livePos = (liveNodePositions as any)[node.id];
+        if (
+          livePos &&
+          (livePos.x !== node.position.x || livePos.y !== node.position.y)
+        ) {
+          return { ...node, position: livePos };
+        }
+        return node;
+      }),
+    );
+  }, [liveNodePositions, setNodes]);
+
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       onNodesChangeOriginal(changes);
 
-      const isDragging = changes.some(
-        (c) => c.type === "position" && c.dragging,
-      );
+      if (!liveNodePositions) return;
 
-      if (isDragging) {
+      for (const change of changes) {
+        if (change.type === "position" && change.position) {
+          updateNodePosition(change.id, change.position.x, change.position.y);
+        }
       }
     },
-    [onNodesChangeOriginal],
+    [onNodesChangeOriginal, updateNodePosition, liveNodePositions],
   );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const position = screenToFlowPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+
+      updateMyPresence({
+        cursor: position,
+        user: {
+          name: session?.user?.name || "Anonymous",
+          email: session?.user?.email || "",
+          avatar: session?.user?.image || "",
+        },
+      });
+    },
+    [screenToFlowPosition, updateMyPresence, session],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    updateMyPresence({ cursor: null });
+  }, [updateMyPresence]);
 
   useEffect(() => {
     if (nodes.length > 0 && !isLayouting) {
@@ -250,8 +317,8 @@ function GraphContent({
           position,
           data: {
             table,
-            onAddColumn,
             onViewIndexes,
+            onAddColumn,
             onDeleteTable,
             onColumnClick,
           },
@@ -282,19 +349,37 @@ function GraphContent({
       setNodes([...layoutedNodes]);
       saveLayout(layoutedNodes);
 
+      // Sync positions to Liveblocks
+      const newPositions: Record<string, { x: number; y: number }> = {};
+      layoutedNodes.forEach((n) => {
+        newPositions[n.id] = n.position;
+      });
+      updateMultipleNodePositions(newPositions);
+
       setTimeout(() => {
         fitView({ duration: 800, padding: 0.2 });
         setIsLayouting(false);
       }, 100);
     }, 50);
-  }, [getNodes, getFlowEdges, setNodes, fitView, saveLayout]);
+  }, [
+    getNodes,
+    getFlowEdges,
+    setNodes,
+    fitView,
+    saveLayout,
+    updateMultipleNodePositions,
+  ]);
 
   const onAddNode = useCallback(() => {
     // alert("Add Table feature would trigger a modal here.");
   }, []);
 
   return (
-    <div className="w-full h-full relative">
+    <div
+      className="w-full h-full relative"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       <style dangerouslySetInnerHTML={{ __html: customStyles }} />
       <ReactFlow
         nodes={nodes}
@@ -337,7 +422,6 @@ function GraphContent({
           canUndo={canUndo}
           canRedo={canRedo}
         />
-
         <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
           {isSaving && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-background/80 backdrop-blur border border-border rounded-full shadow-sm text-xs text-muted-foreground animate-in fade-in zoom-in slide-in-from-bottom-2">
@@ -346,23 +430,8 @@ function GraphContent({
             </div>
           )}
         </div>
-
-        {/* <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
-          <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
-            Schemas
-          </h3>
-          <div className="space-y-1.5">
-            {data.schemas.map((schema) => (
-              <div key={schema} className="flex items-center space-x-2">
-                <span className="flex h-2 w-2 rounded-full bg-primary" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  {schema}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div> */}
       </ReactFlow>
+      <CollaborativeCursors />
     </div>
   );
 }

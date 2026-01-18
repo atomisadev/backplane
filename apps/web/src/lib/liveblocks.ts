@@ -69,6 +69,7 @@ type Storage = {
       defaultValue?: string;
     };
   }>;
+  nodePositions: { [id: string]: { x: number; y: number } };
 };
 
 export const {
@@ -79,4 +80,8 @@ export const {
   useUpdateMyPresence,
   useStorage,
   useMutation,
-} = createRoomContext<Presence, Storage>(client);
+  useBroadcastEvent,
+  useEventListener,
+} = createRoomContext<Presence, Storage, any, { type: "SCHEMA_PUBLISHED" }>(
+  client,
+);
