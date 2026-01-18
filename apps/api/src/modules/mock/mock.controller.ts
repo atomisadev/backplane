@@ -1,11 +1,12 @@
 import { Elysia, t } from "elysia";
-import { requireAPIToken } from "../../middleware/mockAuto.middleware";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db";
 import knex from "knex";
 import { decrypt } from "../../lib/crypto";
 import { mockService } from "./mock.service";
-import { NotFoundError } from "../../errors";
+import { ForbiddenError, NotFoundError } from "../../errors";
+import { getAuthSession } from "../../auth";
+import { mockAuthMiddleware } from "../../middleware/mock-auth.middleware";
 
 const getProjectConnection = async (projectID: string) => {
   const project = await prisma.project.findUnique({
@@ -26,166 +27,208 @@ const getProjectConnection = async (projectID: string) => {
 };
 
 export const mockController = new Elysia({ prefix: "/mock" })
-  .get(
-    "/:projectID/:tableName",
-    async ({ params: { projectID, tableName }, query: { schema }, set }) => {
-      const pg = await getProjectConnection(projectID);
-
-      try {
-        const res = await mockService.findAllRecords(
-          pg,
-          tableName,
-          schema ?? "public",
-        );
-        return { success: true, data: res };
-      } finally {
-        await pg.destroy();
-      }
-    },
-    {
-      params: t.Object({
-        projectID: t.String(),
-        tableName: t.String(),
-      }),
-      query: t.Object({
-        schema: t.Optional(t.String()),
-      }),
-    },
-  )
-
-  .get(
-    "/:projectID/:tableName/:id",
-    async ({
-      params: { projectID, tableName, id },
-      query: { schema },
-      set,
-    }) => {
-      const pg = await getProjectConnection(projectID);
-
-      try {
-        const res = await mockService.findRecordWithID(
-          pg,
-          tableName,
-          id,
-          schema ?? "public",
-        );
-        return { success: true, data: res };
-      } finally {
-        await pg.destroy();
-      }
-    },
-    {
-      params: t.Object({
-        projectID: t.String(),
-        tableName: t.String(),
-        id: t.String(),
-      }),
-      query: t.Object({
-        schema: t.Optional(t.String()),
-      }),
-    },
-  )
-
   .post(
-    "/:projectID/:tableName",
-    async ({
-      params: { projectID, tableName },
-      query: { schema },
-      body,
-      set,
-    }) => {
-      const pg = await getProjectConnection(projectID);
+    "/session",
+    async ({ request, body, set }) => {
+      const authSession = await getAuthSession(request.headers);
+      if (!authSession) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
 
       try {
-        const res = await mockService.addRecord(
-          pg,
-          tableName,
-          body,
-          schema ?? "public",
+        const result = await mockService.createSession(
+          body.projectId,
+          authSession.user.id,
         );
-        set.status = 201;
-        return { success: true, data: res };
-      } finally {
-        await pg.destroy();
+        return { success: true, data: result };
+      } catch (e) {
+        console.error("Failed to create mock session", e);
+        throw e;
       }
     },
     {
-      params: t.Object({
-        projectID: t.String(),
-        tableName: t.String(),
+      body: t.Object({
+        projectId: t.String(),
       }),
-      query: t.Object({
-        schema: t.Optional(t.String()),
-      }),
-      body: t.Object({}, { additionalProperties: true }),
     },
   )
+  .group("/:projectID", (app) =>
+    app
+      .use(mockAuthMiddleware)
+      .guard({ requireMockAuth: true })
+      .onBeforeHandle(({ params: { projectID }, mockSession }) => {
+        if (!mockSession || mockSession.projectId !== projectID) {
+          throw new ForbiddenError(
+            "This session token is not valid for the requested project",
+          );
+        }
+      })
+      .get(
+        "/:tableName",
+        async ({
+          params: { projectID, tableName },
+          query: { schema },
+          set,
+        }) => {
+          const pg = await getProjectConnection(projectID);
 
-  .patch(
-    "/:projectID/:tableName/:id",
-    async ({
-      params: { projectID, tableName, id },
-      query: { schema },
-      body,
-      set,
-    }) => {
-      const pg = await getProjectConnection(projectID);
+          try {
+            const res = await mockService.findAllRecords(
+              pg,
+              tableName,
+              schema ?? "public",
+            );
+            return { success: true, data: res };
+          } finally {
+            await pg.destroy();
+          }
+        },
+        {
+          params: t.Object({
+            projectID: t.String(),
+            tableName: t.String(),
+          }),
+          query: t.Object({
+            schema: t.Optional(t.String()),
+          }),
+        },
+      )
 
-      try {
-        const res = await mockService.updateRecord(
-          pg,
-          tableName,
-          id,
+      .get(
+        "/:tableName/:id",
+        async ({
+          params: { projectID, tableName, id },
+          query: { schema },
+          set,
+        }) => {
+          const pg = await getProjectConnection(projectID);
+
+          try {
+            const res = await mockService.findRecordWithID(
+              pg,
+              tableName,
+              id,
+              schema ?? "public",
+            );
+            return { success: true, data: res };
+          } finally {
+            await pg.destroy();
+          }
+        },
+        {
+          params: t.Object({
+            projectID: t.String(),
+            tableName: t.String(),
+            id: t.String(),
+          }),
+          query: t.Object({
+            schema: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      .post(
+        "/:tableName",
+        async ({
+          params: { projectID, tableName },
+          query: { schema },
           body,
-          schema ?? "public",
-        );
-        return { success: true, data: res };
-      } finally {
-        await pg.destroy();
-      }
-    },
-    {
-      params: t.Object({
-        projectID: t.String(),
-        tableName: t.String(),
-        id: t.String(),
-      }),
-      query: t.Object({
-        schema: t.Optional(t.String()),
-      }),
-      body: t.Object({}, { additionalProperties: true }),
-    },
-  )
+          set,
+        }) => {
+          const pg = await getProjectConnection(projectID);
 
-  .delete(
-    "/:projectID/:tableName/:id",
-    async ({
-      params: { projectID, tableName, id },
-      query: { schema },
-      set,
-    }) => {
-      const pg = await getProjectConnection(projectID);
+          try {
+            const res = await mockService.addRecord(
+              pg,
+              tableName,
+              body,
+              schema ?? "public",
+            );
+            set.status = 201;
+            return { success: true, data: res };
+          } finally {
+            await pg.destroy();
+          }
+        },
+        {
+          params: t.Object({
+            projectID: t.String(),
+            tableName: t.String(),
+          }),
+          query: t.Object({
+            schema: t.Optional(t.String()),
+          }),
+          body: t.Object({}, { additionalProperties: true }),
+        },
+      )
 
-      try {
-        const res = await mockService.deleteRecord(
-          pg,
-          tableName,
-          id,
-          schema ?? "public",
-        );
-        return { success: true, data: res };
-      } finally {
-        await pg.destroy();
-      }
-    },
-    {
-      params: t.Object({
-        projectID: t.String(),
-        tableName: t.String(),
-        id: t.String(),
-      }),
-      query: t.Object({
-        schema: t.Optional(t.String()),
-      }),
-    },
+      .patch(
+        "/:tableName/:id",
+        async ({
+          params: { projectID, tableName, id },
+          query: { schema },
+          body,
+          set,
+        }) => {
+          const pg = await getProjectConnection(projectID);
+
+          try {
+            const res = await mockService.updateRecord(
+              pg,
+              tableName,
+              id,
+              body,
+              schema ?? "public",
+            );
+            return { success: true, data: res };
+          } finally {
+            await pg.destroy();
+          }
+        },
+        {
+          params: t.Object({
+            projectID: t.String(),
+            tableName: t.String(),
+            id: t.String(),
+          }),
+          query: t.Object({
+            schema: t.Optional(t.String()),
+          }),
+          body: t.Object({}, { additionalProperties: true }),
+        },
+      )
+
+      .delete(
+        "/:tableName/:id",
+        async ({
+          params: { projectID, tableName, id },
+          query: { schema },
+          set,
+        }) => {
+          const pg = await getProjectConnection(projectID);
+
+          try {
+            const res = await mockService.deleteRecord(
+              pg,
+              tableName,
+              id,
+              schema ?? "public",
+            );
+            return { success: true, data: res };
+          } finally {
+            await pg.destroy();
+          }
+        },
+        {
+          params: t.Object({
+            projectID: t.String(),
+            tableName: t.String(),
+            id: t.String(),
+          }),
+          query: t.Object({
+            schema: t.Optional(t.String()),
+          }),
+        },
+      ),
   );

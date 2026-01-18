@@ -1,6 +1,19 @@
 import knex, { Knex } from "knex";
-import { DatabaseError, NotFoundError } from "../../errors";
+import { DatabaseError, NotFoundError, UnauthorizedError } from "../../errors";
 import { keyof, StringFormatParams } from "better-auth/*";
+import { randomBytes, createHash } from "node:crypto";
+import { prisma } from "../../db";
+
+const generateToken = () => {
+  const raw = randomBytes(32).toString("hex");
+  const hash = createHash("sha256").update(raw).digest("hex");
+  return { raw, hash };
+};
+
+const validateToken = (rawToken: string, storedHash: string) => {
+  const hash = createHash("sha256").update(rawToken).digest("hex");
+  return hash === storedHash;
+};
 
 const getPrimaryKey = async (
   pg: Knex,
@@ -39,6 +52,73 @@ const getPrimaryKey = async (
 };
 
 export const mockService = {
+  async createSession(projectId: string, userId: string) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.userId !== userId) {
+      throw new NotFoundError("Project not found");
+    }
+
+    const { raw, hash } = generateToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const session = await prisma.mockSession.create({
+      data: {
+        projectId,
+        token: hash,
+        expiresAt,
+      },
+    });
+
+    return {
+      sessionId: session.id,
+      token: raw,
+      expiresAt: session.expiresAt,
+    };
+  },
+
+  async validateSession(rawToken: string) {
+    const hash = createHash("sha256").update(rawToken).digest("hex");
+
+    const session = await prisma.mockSession.findUnique({
+      where: { token: hash },
+      include: { project: true },
+    });
+
+    if (!session) {
+      throw new UnauthorizedError("Invalid mock session token");
+    }
+
+    if (new Date() > session.expiresAt) {
+      await prisma.mockSession
+        .delete({ where: { id: session.id } })
+        .catch(() => {});
+      throw new UnauthorizedError("Mock session expired");
+    }
+
+    return session;
+  },
+
+  async endSession(sessionId: string, userId: string) {
+    const session = await prisma.mockSession.findUnique({
+      where: { id: sessionId },
+      include: { project: true },
+    });
+
+    if (!session || session.project.userId !== userId) {
+      throw new NotFoundError("Session not found");
+    }
+
+    await prisma.mockSession.delete({
+      where: { id: sessionId },
+    });
+
+    return { success: true };
+  },
+
   async findAllRecords(
     pg: Knex,
     tableName: string,
