@@ -34,6 +34,8 @@ import {
   Settings,
   ListRestart,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -61,22 +63,30 @@ function SchemaTreeItem({
   node,
   level = 0,
   onSelect,
+  isHidden,
+  onToggleVisibility,
 }: {
   node: any;
   level?: number;
   onSelect?: (nodeId: string) => void;
+  isHidden: boolean;
+  onToggleVisibility: (id: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const hasColumns = node.columns && node.columns.length > 0;
 
   return (
-    <div className="select-none">
+    <div className="select-none group/item relative">
       <SidebarMenuButton
         onClick={() => {
           if (hasColumns) setIsOpen(!isOpen);
           onSelect?.(node.id);
         }}
-        className={cn("h-7 text-sm group", level > 0 && "pl-8")}
+        className={cn(
+          "h-7 text-sm group pr-8",
+          level > 0 && "pl-8",
+          isHidden && "opacity-50 grayscale",
+        )}
       >
         {hasColumns ? (
           <ChevronRight
@@ -97,7 +107,30 @@ function SchemaTreeItem({
         )}
       </SidebarMenuButton>
 
-      {isOpen && hasColumns && (
+      <div
+        className={cn(
+          "absolute right-1 top-1",
+          isHidden ? "flex" : "hidden group-hover/item:flex",
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 rounded-sm hover:bg-background hover:text-foreground text-muted-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility(node.id);
+          }}
+        >
+          {isHidden ? (
+            <EyeOff className="size-3" />
+          ) : (
+            <Eye className="size-3" />
+          )}
+        </Button>
+      </div>
+
+      {isOpen && hasColumns && !isHidden && (
         <div className="border-l border-border/40 ml-[1.15rem] pl-1 my-0.5 space-y-[1px]">
           {node.columns.map((col: any) => (
             <SidebarMenuButton
@@ -152,6 +185,20 @@ export default function ProjectView() {
     `${id}.changes`,
     [],
   );
+
+  const [hiddenTableIds, setHiddenTableIds] = useState<Set<string>>(new Set());
+
+  const toggleTableVisibility = useCallback((nodeId: string) => {
+    setHiddenTableIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [removeID, setRemoveID] = useState("");
@@ -248,6 +295,27 @@ export default function ProjectView() {
 
     return clonedData;
   }, [project, pendingChanges]);
+
+  const graphSchema = useMemo(() => {
+    if (!mergedSchema) return null;
+
+    if (hiddenTableIds.size === 0) return mergedSchema;
+
+    const filtered = { ...mergedSchema };
+
+    // Filter nodes
+    filtered.nodes = mergedSchema.nodes.filter(
+      (node) => !hiddenTableIds.has(node.id),
+    );
+
+    filtered.edges = mergedSchema.edges.filter(
+      (edge) =>
+        !hiddenTableIds.has(edge.source) && !hiddenTableIds.has(edge.target),
+    );
+
+    return filtered;
+  }, [mergedSchema, hiddenTableIds]);
+  // MODIFIED END
 
   const handleQueueColumnAdd = useCallback(
     (colDef: ColumnDefinition) => {
@@ -447,7 +515,11 @@ export default function ProjectView() {
                         </div>
                         {nodes.map((node) => (
                           <SidebarMenuItem key={node.id}>
-                            <SchemaTreeItem node={node} />
+                            <SchemaTreeItem
+                              node={node}
+                              isHidden={hiddenTableIds.has(node.id)}
+                              onToggleVisibility={toggleTableVisibility}
+                            />
                           </SidebarMenuItem>
                         ))}
                       </div>
@@ -536,10 +608,10 @@ export default function ProjectView() {
 
           <div className="flex-1 overflow-hidden relative bg-muted/5">
             <div className="absolute inset-0">
-              {mergedSchema && (
+              {graphSchema && (
                 <DatabaseSchemaGraph
                   currentChanges={pendingChanges}
-                  data={mergedSchema}
+                  data={graphSchema}
                   setChanges={setPendingChanges}
                   onAddColumn={handleAddColumnClick}
                   onViewIndexes={handleViewIndexesClick}
