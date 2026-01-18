@@ -37,6 +37,8 @@ import {
   Eye,
   EyeOff,
   Terminal,
+  LogOut,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -53,6 +55,16 @@ import { toast } from "sonner";
 import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 import RemoveTableDialog from "./_components/remove-table-dialog";
 import { MockSessionDialog } from "./_components/mock-session-dialog";
+import { authClient } from "@/lib/auth-client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
@@ -168,6 +180,9 @@ export default function ProjectView() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const { data: project, isLoading, error } = useProject(id);
+
+  const { data: session } = authClient.useSession();
+
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
@@ -429,6 +444,15 @@ export default function ProjectView() {
     setIsRemoveOpen(false);
   };
 
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/sign-in");
+    } catch (error) {
+      toast.error("Failed to sign out");
+    }
+  };
+
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
     if (!searchTerm) return mergedSchema.nodes;
@@ -620,6 +644,46 @@ export default function ProjectView() {
                   <Settings className="size-3.5 text-muted-foreground" />
                 </Button>
               </div>
+            </div>
+
+            <div className="ml-2 pl-2 border-l border-border/40">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Avatar className="h-7 w-7 cursor-pointer border border-border/50 transition-opacity hover:opacity-80">
+                    <AvatarImage
+                      src={session?.user?.image ?? undefined}
+                      alt={session?.user?.name || "User"}
+                    />
+                    <AvatarFallback className="bg-muted text-[10px] font-medium">
+                      {session?.user?.name ? (
+                        session.user.name.charAt(0).toUpperCase()
+                      ) : (
+                        <User className="size-3 text-muted-foreground" />
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {session?.user?.name || "User"}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground font-normal">
+                        {session?.user?.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="mr-2 size-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
 
