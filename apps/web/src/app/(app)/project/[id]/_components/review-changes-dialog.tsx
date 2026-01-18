@@ -12,8 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table2, Columns, Trash2, Loader2, ArrowUpRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { PendingChange } from "../page";
+import { PendingChange } from "@/lib/types";
 
 interface ReviewChangesDialogProps {
   open: boolean;

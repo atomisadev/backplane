@@ -39,10 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
-import {
-  AddColumnDialog,
-  ColumnDefinition,
-} from "./_components/add-column-dialog";
+import { AddColumnDialog } from "./_components/add-column-dialog";
 import { ViewIndexesDialog } from "./_components/view-indexes-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -51,13 +48,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 import RemoveTableDialog from "./_components/remove-table-dialog";
-
-export type PendingChange = {
-  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
-  schema: string;
-  table: string;
-  column?: ColumnDefinition;
-};
+import { ColumnDefinition, PendingChange } from "@/lib/types";
 
 function SchemaTreeItem({
   node,

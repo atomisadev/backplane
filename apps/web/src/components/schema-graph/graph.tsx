@@ -15,15 +15,18 @@ import {
   OnNodesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Column, DbSchemaGraphData, Relationship, SchemaNode } from "./types";
+import {
+  PendingChange,
+  ColumnDefinition,
+  DbSchemaGraphData,
+  Relationship,
+} from "../../lib/types";
 import { TableNode } from "./table-node";
 import { GraphToolbar } from "./toolbar";
 import { performAutoLayout } from "./layout-engine";
-import { PendingChange } from "@/app/(app)/project/[id]/page";
 import { useSaveLayout } from "@/app/(app)/project/[id]/_hooks/use-save-layout";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { ColumnDefinition } from "@/app/(app)/project/[id]/_components/add-column-dialog";
 
 const customStyles = `
   .react-flow__controls { display: none; }

@@ -1,4 +1,3 @@
-import { ColumnDefinition } from "@/app/(app)/project/[id]/_components/add-column-dialog";
 import { Node } from "@xyflow/react";
 
 export interface Column {
@@ -20,6 +19,13 @@ export interface TableData {
   columns: Column[];
 }
 
+export interface ColumnDefinition {
+  name: string;
+  type: string;
+  nullable: boolean;
+  defaultValue?: string;
+}
+
 export type SchemaNodeData = {
   table: TableData;
   onViewIndexes?: (schema: string, table: string) => void;
@@ -29,6 +35,13 @@ export type SchemaNodeData = {
     columns: ColumnDefinition[],
   ) => void;
   onDeleteTable?: (id: string) => void;
+};
+
+export type PendingChange = {
+  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
+  schema: string;
+  table: string;
+  column?: ColumnDefinition;
 };
 
 export type SchemaNode = Node<SchemaNodeData, "table">;

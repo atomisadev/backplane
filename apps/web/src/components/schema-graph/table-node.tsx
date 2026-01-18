@@ -1,17 +1,8 @@
 import React, { memo, useMemo } from "react";
 import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react";
-import {
-  Key,
-  Database,
-  GripHorizontal,
-  Plus,
-  List,
-  Grip,
-  Trash2,
-  Eye,
-} from "lucide-react";
+import { Key, Database, Plus, List, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SchemaNode } from "./types";
+import { SchemaNode } from "../../lib/types";
 import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
