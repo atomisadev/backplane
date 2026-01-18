@@ -26,8 +26,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import React, { useMemo, useState } from "react";
-import { PendingChange } from "@/app/(app)/project/[id]/page";
-import { DbSchemaGraphData } from "./types";
+import { DbSchemaGraphData, PendingChange } from "../../lib/types";
 import { FormValues, makeSchema } from "@/lib/schemas/tableForm";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

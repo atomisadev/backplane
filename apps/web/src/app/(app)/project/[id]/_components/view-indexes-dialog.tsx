@@ -8,10 +8,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIndexes } from "../_hooks/use-indexes";
 import { useParams } from "next/navigation";
-import { Loader2, Check, Shield } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ViewIndexesDialogProps {

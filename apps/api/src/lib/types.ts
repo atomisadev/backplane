@@ -7,10 +7,19 @@ export const ChangesDefinition = t.Array(
       t.Literal("CREATE_TABLE"),
       t.Literal("UPDATE_COLUMN"),
       t.Literal("DROP_TABLE"),
+      t.Literal("DELETE_COLUMN"),
     ]),
     schema: t.String(),
     table: t.String(),
     column: t.Optional(
+      t.Object({
+        name: t.String(),
+        type: t.String(),
+        nullable: t.Boolean(),
+        defaultValue: t.Optional(t.String()),
+      }),
+    ),
+    oldColumn: t.Optional(
       t.Object({
         name: t.String(),
         type: t.String(),

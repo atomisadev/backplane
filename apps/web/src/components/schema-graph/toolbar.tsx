@@ -23,8 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import AddTable from "./addTable";
-import { PendingChange } from "@/app/(app)/project/[id]/page";
-import { DbSchemaGraphData } from "./types";
+import { DbSchemaGraphData, PendingChange } from "../../lib/types";
 
 interface GraphToolbarProps {
   onAddNode: () => void;

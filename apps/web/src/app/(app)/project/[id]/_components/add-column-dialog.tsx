@@ -25,6 +25,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ColumnDefinition } from "@/lib/types";
 
 import {
   POSTGRES_TYPES,
@@ -32,13 +33,6 @@ import {
   makeAddColumnSchema,
   type AddColumnFormValues,
 } from "@/lib/schemas/addColumnSchema";
-
-export interface ColumnDefinition {
-  name: string;
-  type: string;
-  nullable: boolean;
-  defaultValue?: string;
-}
 
 interface AddColumnDialogProps {
   open: boolean;
