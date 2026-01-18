@@ -379,7 +379,11 @@ export const projectService = {
     return project;
   },
 
-  async update(userId: string, projectId: string, data: { graphLayout?: any }) {
+  async update(
+    userId: string,
+    projectId: string,
+    data: { graphLayout?: any; name?: string },
+  ) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
     });
@@ -392,6 +396,7 @@ export const projectService = {
       where: { id: projectId },
       data: {
         graphLayout: data.graphLayout ?? undefined,
+        name: data.name ?? undefined,
       },
     });
   },

@@ -95,6 +95,7 @@ export const projectsController = new Elysia({ prefix: "/projects" })
       try {
         const updated = await projectService.update(session.user.id, id, {
           graphLayout: body.graphLayout,
+          name: body.name,
         });
 
         return { success: true, data: updated };
@@ -110,6 +111,7 @@ export const projectsController = new Elysia({ prefix: "/projects" })
       }),
       body: t.Object({
         graphLayout: t.Optional(t.Any()),
+        name: t.Optional(t.String({ minLength: 1 })),
       }),
     },
   )

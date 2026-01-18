@@ -41,6 +41,20 @@ export const useProjects = () => {
     },
   });
 
+  const updateProject = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { data, error } = await api.api.projects({ id }).patch({ name });
+      if (error)
+        throw new Error(
+          error.value ? JSON.stringify(error.value) : "Failed to update",
+        );
+      return data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
   const deleteProject = useMutation({
     mutationFn: async (projectId: string) => {
       const { data, error } = await api.api
@@ -60,6 +74,7 @@ export const useProjects = () => {
   return {
     projects,
     createProject,
+    updateProject,
     deleteProject,
   };
 };

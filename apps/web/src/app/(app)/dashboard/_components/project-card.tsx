@@ -22,7 +22,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Database, ArrowRight, Trash2, MoreVertical } from "lucide-react";
+import {
+  Database,
+  ArrowRight,
+  Trash2,
+  MoreVertical,
+  Pencil,
+  Loader2,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useState } from "react";
 import { useProjects } from "@/hooks/use-project";
@@ -37,7 +46,26 @@ interface ProjectCardProps {
 
 export function ProjectCard({ id, name, dbType, createdAt }: ProjectCardProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const { deleteProject } = useProjects();
+  const { deleteProject, updateProject } = useProjects();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState(name);
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim() || editName === name) {
+      setIsEditDialogOpen(false);
+      return;
+    }
+
+    try {
+      await updateProject.mutateAsync({ id, name: editName });
+      setIsEditDialogOpen(false);
+      toast.success("Project renamed successfully");
+    } catch (error) {
+      console.error("Failed to update project:", error);
+      toast.error("Failed to rename project");
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -95,6 +123,17 @@ export function ProjectCard({ id, name, dbType, createdAt }: ProjectCardProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditName(name);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    <Pencil className="size-4 mr-2" />
+                    Edit Project
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     className="text-destructive focus:text-destructive-foreground focus:bg-destructive"
                     onClick={(e) => {
                       e.preventDefault();
@@ -111,6 +150,45 @@ export function ProjectCard({ id, name, dbType, createdAt }: ProjectCardProps) {
           </CardContent>
         </Card>
       </Link>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Rename your project.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEdit}>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Project Name</Label>
+                <Input
+                  id="name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="bg-muted/30"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={updateProject.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateProject.isPending}>
+                {updateProject.isPending && (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                )}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
