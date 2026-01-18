@@ -5,44 +5,39 @@ import { prisma } from "../../db";
 import knex from "knex";
 import { decrypt } from "../../lib/crypto";
 import { mockService } from "./mock.service";
+import { NotFoundError } from "../../errors";
+
+const getProjectConnection = async (projectID: string) => {
+  const project = await prisma.project.findUnique({
+    where: { id: projectID },
+  });
+
+  if (!project) {
+    throw new NotFoundError("Project not found");
+  }
+
+  const connectionString = decrypt(project.connectionUri);
+
+  return knex({
+    client: "pg",
+    connection: connectionString,
+    pool: { min: 0, max: 5 },
+  });
+};
 
 export const mockController = new Elysia({ prefix: "/mock" })
-  //   .use(requireAPIToken)
   .get(
     "/:projectID/:tableName",
-    async ({ params: { projectID, tableName }, set }) => {
-      const project = await prisma.project.findUnique({
-        where: { id: projectID },
-      });
-
-      if (!project) {
-        set.status = 404;
-        return { success: false, message: "Project not found." };
-      }
-
-      const connectionString = decrypt(project.connectionUri);
-
-      const pg = knex({
-        client: "pg",
-        connection: connectionString,
-        pool: { min: 0, max: 5 },
-      });
+    async ({ params: { projectID, tableName }, query: { schema }, set }) => {
+      const pg = await getProjectConnection(projectID);
 
       try {
-        const res = await mockService.findAllRecords(pg, tableName);
-
-        set.status = 200;
-        return {
-          success: true,
-          data: res,
-        };
-      } catch (e) {
-        console.error("Database fetch error:", e);
-        set.status = 500;
-        return {
-          success: false,
-          message: "Failed to search datatbase with error: " + e,
-        };
+        const res = await mockService.findAllRecords(
+          pg,
+          tableName,
+          schema ?? "public",
+        );
+        return { success: true, data: res };
       } finally {
         await pg.destroy();
       }
@@ -52,356 +47,145 @@ export const mockController = new Elysia({ prefix: "/mock" })
         projectID: t.String(),
         tableName: t.String(),
       }),
+      query: t.Object({
+        schema: t.Optional(t.String()),
+      }),
+    },
+  )
+
+  .get(
+    "/:projectID/:tableName/:id",
+    async ({
+      params: { projectID, tableName, id },
+      query: { schema },
+      set,
+    }) => {
+      const pg = await getProjectConnection(projectID);
+
+      try {
+        const res = await mockService.findRecordWithID(
+          pg,
+          tableName,
+          id,
+          schema ?? "public",
+        );
+        return { success: true, data: res };
+      } finally {
+        await pg.destroy();
+      }
+    },
+    {
+      params: t.Object({
+        projectID: t.String(),
+        tableName: t.String(),
+        id: t.String(),
+      }),
+      query: t.Object({
+        schema: t.Optional(t.String()),
+      }),
+    },
+  )
+
+  .post(
+    "/:projectID/:tableName",
+    async ({
+      params: { projectID, tableName },
+      query: { schema },
+      body,
+      set,
+    }) => {
+      const pg = await getProjectConnection(projectID);
+
+      try {
+        const res = await mockService.addRecord(
+          pg,
+          tableName,
+          body,
+          schema ?? "public",
+        );
+        set.status = 201;
+        return { success: true, data: res };
+      } finally {
+        await pg.destroy();
+      }
+    },
+    {
+      params: t.Object({
+        projectID: t.String(),
+        tableName: t.String(),
+      }),
+      query: t.Object({
+        schema: t.Optional(t.String()),
+      }),
+      body: t.Object({}, { additionalProperties: true }),
+    },
+  )
+
+  .patch(
+    "/:projectID/:tableName/:id",
+    async ({
+      params: { projectID, tableName, id },
+      query: { schema },
+      body,
+      set,
+    }) => {
+      const pg = await getProjectConnection(projectID);
+
+      try {
+        const res = await mockService.updateRecord(
+          pg,
+          tableName,
+          id,
+          body,
+          schema ?? "public",
+        );
+        return { success: true, data: res };
+      } finally {
+        await pg.destroy();
+      }
+    },
+    {
+      params: t.Object({
+        projectID: t.String(),
+        tableName: t.String(),
+        id: t.String(),
+      }),
+      query: t.Object({
+        schema: t.Optional(t.String()),
+      }),
+      body: t.Object({}, { additionalProperties: true }),
+    },
+  )
+
+  .delete(
+    "/:projectID/:tableName/:id",
+    async ({
+      params: { projectID, tableName, id },
+      query: { schema },
+      set,
+    }) => {
+      const pg = await getProjectConnection(projectID);
+
+      try {
+        const res = await mockService.deleteRecord(
+          pg,
+          tableName,
+          id,
+          schema ?? "public",
+        );
+        return { success: true, data: res };
+      } finally {
+        await pg.destroy();
+      }
+    },
+    {
+      params: t.Object({
+        projectID: t.String(),
+        tableName: t.String(),
+        id: t.String(),
+      }),
+      query: t.Object({
+        schema: t.Optional(t.String()),
+      }),
     },
   );
-//   .get(
-//     "/:projectID/:tableName/:schemaName",
-//     async ({ params: { projectID, tableName, schemaName }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.findAllRecordsWithSchema(
-//           pg,
-//           schemaName,
-//           tableName,
-//         );
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         tableName: t.String(),
-//         schemaName: t.String(),
-//       }),
-//     },
-//   )
-//   .get(
-//     "/:projectID/:tableName/:id",
-//     async ({ params: { projectID, tableName, id }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.findRecordWithID(pg, tableName, id);
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         tableName: t.String(),
-//         id: t.Any(),
-//       }),
-//     },
-//   )
-//   .get(
-//     "/:projectID/:tableName/:id/:schemaName",
-//     async ({ params: { projectID, schemaName, tableName, id }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.findRecordWithIDAndSchema(
-//           pg,
-//           schemaName,
-//           tableName,
-//           id,
-//         );
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         schemaName: t.String(),
-//         tableName: t.String(),
-//         id: t.Any(),
-//       }),
-//     },
-//   )
-//   .post(
-//     "/:projectID/:tableName",
-//     async ({ body, params: { projectID, tableName }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.addRecord(pg, tableName, body);
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         tableName: t.String(),
-//       }),
-//       body: t.Object({}),
-//     },
-//   )
-//   .post(
-//     "/:projectID/:tableName/:schemaName",
-//     async ({ body, params: { projectID, schemaName, tableName }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.addRecordWithSchema(
-//           pg,
-//           schemaName,
-//           tableName,
-//           body,
-//         );
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         schemaName: t.String(),
-//         tableName: t.String(),
-//       }),
-//       body: t.Object({}),
-//     },
-//   )
-//   .delete(
-//     "/:projectID/:tableName/:id",
-//     async ({ params: { projectID, tableName, id }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.deleteRecord(pg, tableName, id);
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         tableName: t.String(),
-//         id: t.Any(),
-//       }),
-//     },
-//   )
-//   .delete(
-//     "/:projectID/:tableName/:id/:schemaName",
-//     async ({ params: { projectID, schemaName, tableName, id }, set }) => {
-//       const project = await prisma.project.findUnique({
-//         where: { id: projectID },
-//       });
-
-//       if (!project) {
-//         set.status = 404;
-//         return { success: false, message: "Project not found." };
-//       }
-
-//       const connectionString = decrypt(project.connectionUri);
-
-//       const pg = knex({
-//         client: "pg",
-//         connection: connectionString,
-//         pool: { min: 0, max: 5 },
-//       });
-
-//       try {
-//         const res = await mockService.deleteRecordWithSchema(
-//           pg,
-//           schemaName,
-//           tableName,
-//           id,
-//         );
-
-//         set.status = 200;
-//         return {
-//           success: true,
-//           data: res,
-//         };
-//       } catch (e) {
-//         console.error("Database fetch error:", e);
-//         set.status = 500;
-//         return {
-//           success: false,
-//           message: "Failed to search datatbase with error: " + e,
-//         };
-//       } finally {
-//         await pg.destroy();
-//       }
-//     },
-//     {
-//       params: t.Object({
-//         projectID: t.String(),
-//         schemaName: t.String(),
-//         tableName: t.String(),
-//         id: t.Any(),
-//       }),
-//     },
-//   );

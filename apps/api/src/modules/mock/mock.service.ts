@@ -1,194 +1,186 @@
 import knex, { Knex } from "knex";
-import { DatabaseError } from "../../errors";
+import { DatabaseError, NotFoundError } from "../../errors";
+import { keyof, StringFormatParams } from "better-auth/*";
+
+const getPrimaryKey = async (
+  pg: Knex,
+  tableName: string,
+  schemaName?: string,
+) => {
+  const query = pg("pg_index as i")
+    .join("pg_class as c", "c.oid", "i.indrelid")
+    .join("pg_namespace as n", "n.oid", "c.relnamespace")
+    .join("pg_attribute as a", function () {
+      this.on("a.attrelid", "c.oid").andOn(
+        "a.attnum",
+        "=",
+        pg.raw("ANY(i.indkey)"),
+      );
+    })
+    .where("i.indisprimary", true)
+    .andWhere("c.relname", tableName)
+    .select(pg.raw("array_agg(a.attname order by a.attnum) as pk_cols"))
+    .first();
+
+  if (schemaName) {
+    query.andWhere("n.nspname", schemaName);
+  }
+
+  const result = await query;
+  const pk = result?.pk_cols?.[0];
+
+  if (!pk) {
+    throw new DatabaseError(
+      `Could not find primary key for table: ${tableName}`,
+    );
+  }
+
+  return pk;
+};
 
 export const mockService = {
-  async findAllRecords(pg: Knex, tableName: string) {
-    return await pg(tableName).select("*");
-  },
-  async findAllRecordsWithSchema(
+  async findAllRecords(
     pg: Knex,
-    schemaName: string,
     tableName: string,
+    schemaName: string = "public",
   ) {
-    return await pg.withSchema(schemaName).select("*").from(tableName);
-  },
-  async findRecordWithID(pg: Knex, tableName: string, id: any) {
-    const primaryKeys = await pg("pg_index as i")
-      .join("pg_class as c", "c.oid", "i.indrelid")
-      .join("pg_namespace as n", "n.oid", "c.relnamespace")
-      .join("pg_attribute as a", function () {
-        this.on("a.attrelid", "c.oid").andOn(
-          "a.attnum",
-          "=",
-          pg.raw("ANY(i.indkey)"),
-        );
-      })
-      .where("i.indisprimary", true)
-      .andWhere("c.relname", tableName)
-      .select(pg.raw("array_agg(a.attname order by a.attnum) as pk_cols"))
-      .first();
-
-    const pk = primaryKeys?.pk_cols?.[0];
-
-    if (!pk) {
-      throw new DatabaseError("Could not find primary key.");
+    try {
+      return await pg.withSchema(schemaName).from(tableName).select("");
+    } catch (e) {
+      throw new DatabaseError(
+        `Failed to fetch records from ${schemaName}.${tableName}`,
+        e,
+      );
     }
-
-    return await pg(tableName).where(pk, id).first();
   },
-  async findRecordWithIDAndSchema(
+
+  async findRecordWithID(
     pg: Knex,
-    schemaName: string,
     tableName: string,
     id: any,
+    schemaName: string = "public",
   ) {
-    const primaryKeys = await pg("pg_index as i")
-      .join("pg_class as c", "c.oid", "i.indrelid")
-      .join("pg_namespace as n", "n.oid", "c.relnamespace")
-      .join("pg_attribute as a", function () {
-        this.on("a.attrelid", "c.oid").andOn(
-          "a.attnum",
-          "=",
-          pg.raw("ANY(i.indkey)"),
-        );
-      })
-      .where("i.indisprimary", true)
-      .andWhere("n.nspname", schemaName)
-      .andWhere("c.relname", tableName)
-      .select(pg.raw("array_agg(a.attname order by a.attnum) as pk_cols"))
-      .first();
-
-    const pk = primaryKeys?.pk_cols?.[0];
-
-    if (!pk) {
-      throw new DatabaseError("Could not find primary key.");
-    }
-
-    return await pg
+    const pk = await getPrimaryKey(pg, tableName, schemaName);
+    const record = await pg
       .withSchema(schemaName)
       .from(tableName)
       .where(pk, id)
       .first();
-  },
-  async addRecord(pg: Knex, tableName: string, record: object) {
-    const rows = await pg("information_schema.columns")
-      .select({
-        name: "column_name",
-        data_type: "data-type",
-        is_nullable: "is_nullable",
-      })
-      .where(tableName)
-      .orderBy("ordinal_position", "asc");
 
-    const tableSet = new Set(rows);
-    const objSet = new Set(Object.keys(record));
-
-    const missingInTable = Object.keys(record).filter((k) => !tableSet.has(k));
-    const extraInTable = rows.filter((c) => !objSet.has(c));
-
-    if (missingInTable.length !== 0 || extraInTable.length !== 0) {
-      throw new DatabaseError(
-        "Input does not match table columns. Input: " +
-          JSON.stringify(record) +
-          "\n Expected: " +
-          JSON.stringify(rows),
+    if (!record) {
+      throw new Error(
+        `Record with ID ${id} not found in ${schemaName}.${tableName}`,
       );
     }
 
-    return await pg(tableName).insert(record);
+    return record;
   },
-  async addRecordWithSchema(
+  async addRecord(
     pg: Knex,
-    schemaName: string,
     tableName: string,
     record: object,
+    schemaName: string = "public",
   ) {
     const rows = await pg("information_schema.columns")
-      .select({
-        name: "column_name",
-        data_type: "data-type",
-        is_nullable: "is_nullable",
-      })
+      .select("column_name")
       .where({
         table_schema: schemaName,
         table_name: tableName,
-      })
-      .orderBy("ordinal_position", "asc");
+      });
 
-    const tableSet = new Set(rows);
-    const objSet = new Set(Object.keys(record));
+    const tableColumns = new Set(rows.map((r) => r.column_name));
+    const inputColumns = Object.keys(record);
+    const extraColumns = inputColumns.filter((k) => !tableColumns.has(k));
 
-    const missingInTable = Object.keys(record).filter((k) => !tableSet.has(k));
-    const extraInTable = rows.filter((c) => !objSet.has(c));
-
-    if (missingInTable.length !== 0 || extraInTable.length !== 0) {
+    if (extraColumns.length > 0) {
       throw new DatabaseError(
-        "Input does not match table columns. Input: " +
-          JSON.stringify(record) +
-          "\n Expected: " +
-          JSON.stringify(rows),
+        `Input contains columns that do not exist in table: ${extraColumns.join(", ")}`,
       );
     }
 
-    return await pg.withSchema(schemaName).select(tableName).insert(record);
-  },
-  async deleteRecord(pg: Knex, tableName: string, id: any) {
-    const primaryKeys = await pg("pg_index as i")
-      .join("pg_class as c", "c.oid", "i.indrelid")
-      .join("pg_namespace as n", "n.oid", "c.relnamespace")
-      .join("pg_attribute as a", function () {
-        this.on("a.attrelid", "c.oid").andOn(
-          "a.attnum",
-          "=",
-          pg.raw("ANY(i.indkey)"),
-        );
-      })
-      .where("i.indisprimary", true)
-      .andWhere("c.relname", tableName)
-      .select(pg.raw("array_agg(a.attname order by a.attnum) as pk_cols"))
-      .first();
+    try {
+      const [inserted] = await pg
+        .withSchema(schemaName)
+        .table(tableName)
+        .insert(record)
+        .returning("*");
 
-    const pk = primaryKeys?.pk_cols?.[0];
-
-    if (!pk) {
-      throw new DatabaseError("Could not find primary key.");
+      return inserted;
+    } catch (e) {
+      throw new DatabaseError("Failed to insert record", e);
     }
-
-    return await pg(tableName).where(pk, id).del().returning("*");
   },
-  async deleteRecordWithSchema(
+  async updateRecord(
     pg: Knex,
-    schemaName: string,
     tableName: string,
     id: any,
+    updates: object,
+    schemaName: string = "public",
   ) {
-    const primaryKeys = await pg("pg_index as i")
-      .join("pg_class as c", "c.oid", "i.indrelid")
-      .join("pg_namespace as n", "n.oid", "c.relnamespace")
-      .join("pg_attribute as a", function () {
-        this.on("a.attrelid", "c.oid").andOn(
-          "a.attnum",
-          "=",
-          pg.raw("ANY(i.indkey)"),
-        );
-      })
-      .where("i.indisprimary", true)
-      .andWhere("n.nspname", schemaName)
-      .andWhere("c.relname", tableName)
-      .select(pg.raw("array_agg(a.attname order by a.attnum) as pk_cols"))
-      .first();
+    const pk = await getPrimaryKey(pg, tableName, schemaName);
 
-    const pk = primaryKeys?.pk_cols?.[0];
+    const rows = await pg("information_schema.columns")
+      .select("column_name")
+      .where({
+        table_schema: schemaName,
+        table_name: tableName,
+      });
 
-    if (!pk) {
-      throw new DatabaseError("Could not find primary key.");
+    const tableColumns = new Set(rows.map((r) => r.column_name));
+    const cleanUpdates: Record<string, any> = {};
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (tableColumns.has(key)) {
+        cleanUpdates[key] = value;
+      }
+    });
+
+    if (Object.keys(cleanUpdates).length === 0) {
+      throw new DatabaseError("No valid columns provided for this update");
     }
 
-    return await pg
-      .withSchema(schemaName)
-      .from(tableName)
-      .where(pk, id)
-      .del()
-      .returning("*");
+    try {
+      const [updated] = await pg
+        .withSchema(schemaName)
+        .from(tableName)
+        .where(pk, id)
+        .update(cleanUpdates)
+        .returning("*");
+
+      if (!updated) {
+        throw new NotFoundError(`Record with ID ${id} not found`);
+      }
+
+      return updated;
+    } catch (e) {
+      if (e instanceof NotFoundError) throw e;
+      throw new DatabaseError("Failed to update record", e);
+    }
+  },
+  async deleteRecord(
+    pg: Knex,
+    tableName: string,
+    id: any,
+    schemaName: string = "public",
+  ) {
+    const pk = await getPrimaryKey(pg, tableName, schemaName);
+
+    try {
+      const [deleted] = await pg
+        .withSchema(schemaName)
+        .from(tableName)
+        .where(pk, id)
+        .del()
+        .returning("*");
+
+      if (!deleted) {
+        throw new NotFoundError(`Record with ID ${id} not found`);
+      }
+
+      return deleted;
+    } catch (e) {
+      if (e instanceof NotFoundError) throw e;
+      throw new DatabaseError("Failed to delete record", e);
+    }
   },
 };
