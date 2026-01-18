@@ -1,14 +1,15 @@
 import { Node, Edge } from "@xyflow/react";
 
 const LAYOUT_CONFIG = {
-  X_SPACING: 80,
-  Y_SPACING: 120,
+  X_SPACING: 50,
+  Y_SPACING: 80,
   CHAR_WIDTH: 9,
-  BASE_PADDING: 60,
+  BASE_PADDING: 40,
   HEADER_HEIGHT: 50,
   ROW_HEIGHT: 32,
   FOOTER_HEIGHT: 45,
   CONTAINER_PADDING: 20,
+  TARGET_ROW_WIDTH: 1400,
 };
 
 const getNodeDimensions = (node: Node) => {
@@ -28,7 +29,7 @@ const getNodeDimensions = (node: Node) => {
   }, 0);
 
   const estimatedWidth = Math.max(
-    320,
+    280,
     Math.max(maxTableLen, maxColLen) * LAYOUT_CONFIG.CHAR_WIDTH +
       LAYOUT_CONFIG.BASE_PADDING,
   );
@@ -106,40 +107,49 @@ export const performAutoLayout = (nodes: Node[], edges: Edge[]) => {
     levelGroups[lvl].push(node);
   });
 
-  const newNodes = nodes.map((node) => {
-    const lvl = levels[node.id];
+  let currentYCursor = 0;
+  const newNodes: Node[] = [];
+
+  const sortedLevels = Object.keys(levelGroups)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  sortedLevels.forEach((lvl) => {
     const group = levelGroups[lvl];
 
-    let rowTotalWidth = 0;
-    group.forEach((n, idx) => {
-      rowTotalWidth += nodeDimensions[n.id].width;
-      if (idx < group.length - 1) rowTotalWidth += LAYOUT_CONFIG.X_SPACING;
+    group.sort((a, b) => {
+      return a.id.localeCompare(b.id);
     });
 
-    let currentX = -(rowTotalWidth / 2);
+    let currentRowX = 0;
+    let currentRowY = currentYCursor;
+    let maxRowHeight = 0;
 
-    const nodeIndex = group.indexOf(node);
-    for (let i = 0; i < nodeIndex; i++) {
-      currentX += nodeDimensions[group[i].id].width + LAYOUT_CONFIG.X_SPACING;
-    }
+    group.forEach((node) => {
+      const dim = nodeDimensions[node.id];
 
-    let startY = 0;
-    for (let i = 0; i < lvl; i++) {
-      const prevGroup = levelGroups[i] || [];
-      const maxH = Math.max(
-        ...prevGroup.map((n) => nodeDimensions[n.id].height),
-        100,
-      );
-      startY += maxH + LAYOUT_CONFIG.Y_SPACING;
-    }
+      if (
+        currentRowX > 0 &&
+        currentRowX + dim.width > LAYOUT_CONFIG.TARGET_ROW_WIDTH
+      ) {
+        currentRowX = 0;
+        currentRowY += maxRowHeight + LAYOUT_CONFIG.Y_SPACING;
+        maxRowHeight = 0;
+      }
 
-    return {
-      ...node,
-      position: {
-        x: currentX,
-        y: startY,
-      },
-    };
+      newNodes.push({
+        ...node,
+        position: {
+          x: currentRowX,
+          y: currentRowY,
+        },
+      });
+
+      currentRowX += dim.width + LAYOUT_CONFIG.X_SPACING;
+      maxRowHeight = Math.max(maxRowHeight, dim.height);
+    });
+
+    currentYCursor = currentRowY + maxRowHeight + LAYOUT_CONFIG.Y_SPACING * 1.5;
   });
 
   return newNodes;

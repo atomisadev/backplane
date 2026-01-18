@@ -9,7 +9,7 @@ import {
   Type,
   LayoutTemplate,
   ZoomOut,
-  Maximize,
+  Scan,
   ZoomIn,
   Loader2,
 } from "lucide-react";
@@ -201,12 +201,12 @@ export function GraphToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-full hover:bg-muted"
-                  onClick={() => fitView({ duration: 500 })}
+                  onClick={() => fitView({ padding: 0.15, duration: 600 })}
                 >
-                  <Maximize className="size-3" />
+                  <Scan className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="top">Fit View</TooltipContent>
+              <TooltipContent side="top">Focus</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
