@@ -67,7 +67,7 @@ export function useAiChat() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let assistantMessage = "";
-        let buffer = ""; // Buffer for SSE lines
+        let buffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
@@ -77,21 +77,17 @@ export function useAiChat() {
           buffer += chunk;
 
           const lines = buffer.split("\n");
-          // Keep the last line in buffer as it might be incomplete
           buffer = lines.pop() || "";
 
           for (const line of lines) {
-            // Check for both "data: " prefix and raw chunks if backend doesn't send "data:"
             let data = "";
             if (line.trim().startsWith("data: ")) {
               data = line.trim().slice(6);
             } else if (line.trim().length > 0) {
-              // Try to handle raw text lines if not SSE formatted
               data = line;
             }
 
             if (data && data !== "[DONE]") {
-              // If it looks like JSON string (old format), parse it
               if (data.startsWith('"') && data.endsWith('"')) {
                 try {
                   assistantMessage += JSON.parse(data);

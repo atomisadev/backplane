@@ -1,4 +1,3 @@
-// MODIFIED START: Updated to use useAiChat hook
 import React, { useState, useRef, useEffect } from "react";
 import { X, Send, Sparkles, User as UserIcon, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ export function AiAssistantSidebar({ onClose }: AiAssistantSidebarProps) {
   const [model, setModel] = useState("gemini-2.5-pro");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll effect
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector(
@@ -199,4 +197,3 @@ export function AiAssistantSidebar({ onClose }: AiAssistantSidebarProps) {
     </div>
   );
 }
-// MODIFIED END

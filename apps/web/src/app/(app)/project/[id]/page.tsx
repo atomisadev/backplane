@@ -124,7 +124,6 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
     });
   }, []);
 
-  // Local undo state (fallback + history)
   const {
     state: localPendingChanges,
     setState: setLocalPendingChanges,
@@ -146,10 +145,8 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
     [],
   );
 
-  // Use live if available, else fallback to local
   const pendingChanges = livePendingChanges ?? localPendingChanges;
 
-  // Unified setter updates both (so local history still works)
   const setPendingChanges = useCallback(
     (
       changes: PendingChange[] | ((prev: PendingChange[]) => PendingChange[]),
@@ -157,12 +154,10 @@ function ProjectViewInner({ projectId }: { projectId: string }) {
       const next =
         typeof changes === "function" ? changes(pendingChanges) : changes;
 
-      // If live storage is ready, update it
       if (livePendingChanges !== undefined) {
         setLivePendingChanges(next);
       }
 
-      // Always update local (undo/redo + offline fallback)
       setLocalPendingChanges(next);
     },
     [

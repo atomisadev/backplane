@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { Liveblocks } from "@liveblocks/node";
-import { getAuthSession } from "../../auth"; // your path
-import { prisma } from "../../db"; // if you store projects
+import { getAuthSession } from "../../auth";
+import { prisma } from "../../db";
 
 const liveblocks = new Liveblocks({
   secret: process.env.LIVEBLOCKS_SECRET_KEY!,
@@ -19,7 +19,7 @@ export const liveblocksController = new Elysia({ prefix: "/liveblocks" }).post(
       return { error: "Unauthorized" };
     }
 
-    const roomId = body.room; // e.g. "project:abc123"
+    const roomId = body.room;
     const projectId = roomId.replace(/^project:/, "");
 
     const project = await prisma.project.findUnique({

@@ -211,12 +211,12 @@ export const schemaService = {
               if (looksLikeExpression) {
                 await pg.raw(
                   "ALTER TABLE ??.?? ALTER COLUMN ?? SET DEFAULT ??",
-                  [schema, table, column.name, newDefault], // defaultValue as a literal
+                  [schema, table, column.name, newDefault],
                 );
               } else {
                 await pg.raw(
                   "ALTER TABLE ??.?? ALTER COLUMN ?? SET DEFAULT ??",
-                  [schema, table, column.name, newDefault.replace(/'/g, "''")], // defaultValue as a literal
+                  [schema, table, column.name, newDefault.replace(/'/g, "''")],
                 );
               }
             } else {

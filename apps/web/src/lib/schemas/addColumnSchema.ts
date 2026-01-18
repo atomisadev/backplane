@@ -1,4 +1,3 @@
-// validation/add-column.schema.ts
 import { z } from "zod";
 
 export const POSTGRES_TYPES = [

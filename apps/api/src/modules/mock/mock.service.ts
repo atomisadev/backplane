@@ -84,7 +84,7 @@ export const mockService = {
 
     return {
       sessionId: session.id,
-      token: raw, // Correct: Returns raw token ONLY here
+      token: raw,
       expiresAt: session.expiresAt,
     };
   },
@@ -105,7 +105,6 @@ export const mockService = {
         id: true,
         createdAt: true,
         expiresAt: true,
-        // FIXED: Removed 'token: true' to prevent leaking the hash
       },
     });
 
@@ -113,7 +112,6 @@ export const mockService = {
   },
 
   async validateSession(rawToken: string) {
-    // DEBUG: Kept logs for now to help you verify the fix with a NEW token
     console.log(
       `[MockService] Validating token (len=${rawToken.length}): ${rawToken.slice(0, 8)}...`,
     );

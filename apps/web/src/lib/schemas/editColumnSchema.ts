@@ -16,7 +16,6 @@ export const makeEditColumnSchema = (
 ) => {
   const currentNameLower = normalizeName(currentColumn.name).toLowerCase();
 
-  // Exclude current column name from uniqueness check
   const existingNamesLower = new Set(
     (existingColumns ?? [])
       .map((c) => normalizeName(c).toLowerCase())
@@ -47,7 +46,6 @@ export const makeEditColumnSchema = (
       defaultValue: z.string().optional(),
     })
     .superRefine((val, ctx) => {
-      // Require at least one change (you can also enforce this via isDirty in the component)
       const editedComparable = {
         name: normalizeName(val.name),
         nullable: !!val.isNullable,

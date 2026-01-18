@@ -34,7 +34,6 @@ export const mockAuthMiddleware = new Elysia({ name: "mock-auth" })
 
         const session = await mockService.validateSession(rawToken);
 
-        // This return makes it available to downstream handlers as `mockSession`
         return { mockSession: session };
       },
     },

@@ -1,4 +1,3 @@
-// MODIFIED START: Fix selection box CSS to be visible and use proper color mixing
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   ReactFlow,
@@ -363,7 +362,6 @@ function GraphContent({
       setNodes([...layoutedNodes]);
       saveLayout(layoutedNodes);
 
-      // Sync positions to Liveblocks
       const newPositions: Record<string, { x: number; y: number }> = {};
       layoutedNodes.forEach((n) => {
         newPositions[n.id] = n.position;
@@ -384,9 +382,7 @@ function GraphContent({
     updateMultipleNodePositions,
   ]);
 
-  const onAddNode = useCallback(() => {
-    // alert("Add Table feature would trigger a modal here.");
-  }, []);
+  const onAddNode = useCallback(() => {}, []);
 
   return (
     <div

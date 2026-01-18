@@ -4,17 +4,16 @@ import { useOthers } from "@/lib/liveblocks";
 import { useReactFlow } from "@xyflow/react";
 import React from "react";
 
-// Generate a color based on connectionId
 function getColorForConnectionId(connectionId: number): string {
   const colors = [
-    "#3b82f6", // blue
-    "#ef4444", // red
-    "#10b981", // green
-    "#f59e0b", // amber
-    "#8b5cf6", // purple
-    "#ec4899", // pink
-    "#06b6d4", // cyan
-    "#f97316", // orange
+    "#3b82f6",
+    "#ef4444",
+    "#10b981",
+    "#f59e0b",
+    "#8b5cf6",
+    "#ec4899",
+    "#06b6d4",
+    "#f97316",
   ];
   return colors[connectionId % colors.length];
 }
@@ -56,17 +55,6 @@ export function CollaborativeCursors() {
                 strokeLinejoin="round"
               />
             </svg>
-            {/* <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-            >
-              <path
-                fill={color}
-                d="M19.27 15.32 7.77 1.61A1 1 0 0 0 6 2.25v17.89a1 1 0 0 0 1.64.77l3.08-2.58 1.56 4.3a1 1 0 0 0 1.28.6l1.88-.68a1 1 0 0 0 .6-1.28l-1.56-4.3h4.02a1 1 0 0 0 .77-1.64Z"
-              ></path>
-            </svg> */}
             <div
               className="absolute top-5 left-5 px-1.5 py-0.5 rounded text-white text-[10px] font-medium whitespace-nowrap shadow-sm"
               style={{

@@ -201,7 +201,6 @@ export const projectService = {
 
         const targetSchema = schemas[0];
 
-        // tables
         const rawTables = await db.raw(
           `
           SELECT TABLE_SCHEMA as table_schema, TABLE_NAME as table_name, TABLE_TYPE as table_type
@@ -214,7 +213,6 @@ export const projectService = {
         const tables = (rawTables &&
           (rawTables[0] ?? rawTables.rows ?? rawTables)) as any[];
 
-        // columns
         const rawColumns = await db.raw(
           `
           SELECT TABLE_SCHEMA as table_schema, TABLE_NAME as table_name, COLUMN_NAME as column_name,
@@ -229,7 +227,6 @@ export const projectService = {
         const columns = (rawColumns &&
           (rawColumns[0] ?? rawColumns.rows ?? rawColumns)) as any[];
 
-        // primary keys
         const rawPks = await db.raw(
           `
           SELECT k.TABLE_SCHEMA as table_schema, k.TABLE_NAME as table_name, k.COLUMN_NAME as column_name
@@ -245,7 +242,6 @@ export const projectService = {
         );
         const pks = (rawPks && (rawPks[0] ?? rawPks.rows ?? rawPks)) as any[];
 
-        // foreign keys
         const rawFks = await db.raw(
           `
           SELECT

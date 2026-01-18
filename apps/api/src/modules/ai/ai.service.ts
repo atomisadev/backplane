@@ -15,7 +15,6 @@ export const aiService = {
 
     const client = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
 
-    // ULTRATHINK FIX: Use currently available stable models.x
     const apiModel = model.includes("flash")
       ? "gemini-3-flash-preview"
       : "gemini-2.5-pro";

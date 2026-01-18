@@ -30,7 +30,6 @@ export default function Page() {
       });
 
       if (responseError) {
-        // Handle Elysia treaty error response
         const errorMessage =
           responseError?.value?.error?.message ||
           responseError?.value?.message ||
@@ -43,7 +42,6 @@ export default function Page() {
         setError(null);
       }
     } catch (err: any) {
-      // Handle network errors or other exceptions
       const errorMessage =
         err?.value?.error?.message ||
         err?.error?.message ||

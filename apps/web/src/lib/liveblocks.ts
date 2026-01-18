@@ -35,7 +35,6 @@ export const client = createClient({
   },
 });
 
-// Presence type for cursor tracking
 type Presence = {
   cursor: { x: number; y: number } | null;
   user: {
@@ -45,7 +44,6 @@ type Presence = {
   };
 };
 
-// Storage type for collaborative pending changes
 type Storage = {
   pendingChanges: Array<{
     type:

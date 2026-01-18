@@ -121,11 +121,10 @@ export const introspectController = new Elysia({ prefix: "/introspect" }).post(
       if (!displayMessage || displayMessage.length === 0) {
         if (err && typeof err === "object") {
           const errObj = err as any;
-          // Try to find any string property
           const possibleMessages = [
             errObj.toString?.(),
             errObj.name,
-            JSON.stringify(errObj).substring(0, 200), // Limit length
+            JSON.stringify(errObj).substring(0, 200),
           ].filter(Boolean) as string[];
           displayMessage =
             possibleMessages[0] || "Unknown database error occurred";
@@ -134,7 +133,6 @@ export const introspectController = new Elysia({ prefix: "/introspect" }).post(
         }
       }
 
-      // Handle specific database connection errors
       const lowerMessage = displayMessage.toLowerCase();
 
       if (
@@ -191,7 +189,6 @@ export const introspectController = new Elysia({ prefix: "/introspect" }).post(
         );
       }
 
-      // Generic database error - include original message in the main message
       throw new DatabaseError(
         `An error occurred while introspecting the database: ${displayMessage}`,
         {
@@ -203,7 +200,6 @@ export const introspectController = new Elysia({ prefix: "/introspect" }).post(
         },
       );
     } finally {
-      // Ensure connection is closed
       if (pg) {
         try {
           await pg.destroy();

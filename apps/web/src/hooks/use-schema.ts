@@ -42,7 +42,6 @@ export const useCreateColumn = (projectId: string) => {
       return true;
     },
     onSuccess: () => {
-      // invalidate whatever queries depend on schema/table columns
       qc.invalidateQueries({ queryKey: ["schema-snapshot", projectId] });
     },
   });
@@ -61,9 +60,7 @@ export const useApplySchemaChanges = (projectId: string) => {
       return true;
     },
     onSuccess: () => {
-      // Invalidate the project query which contains the schemaSnapshot
       qc.invalidateQueries({ queryKey: ["project", projectId] });
-      // Also invalidate schema-indexes queries
       qc.invalidateQueries({ queryKey: ["schema-indexes", projectId] });
     },
   });

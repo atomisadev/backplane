@@ -30,6 +30,6 @@ export type FormValues = {
   name: string;
   schema: string;
   pkName: string;
-  pkType: "" | PkType; // <-- includes ""
+  pkType: "" | PkType;
   pkDefault?: string;
 };
