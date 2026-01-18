@@ -4,15 +4,37 @@ import { useProjects } from "@/hooks/use-project";
 import { CreateProjectSheet } from "./_components/create-project-sheet";
 import { ProjectCard } from "./_components/project-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Database } from "lucide-react";
+import { Database, LogOut, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const { projects } = useProjects();
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
+
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/sign-in");
+    } catch (error) {
+      toast.error("Failed to sign out");
+    }
+  };
 
   return (
     <div className="flex min-h-screen w-full flex-col p-6 md:p-10 bg-background">
       <div className="mx-auto w-full max-w-6xl space-y-8">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
@@ -20,10 +42,49 @@ export default function Dashboard() {
               Manage your database connections.
             </p>
           </div>
-          <CreateProjectSheet />
+          <div className="flex items-center gap-4">
+            <CreateProjectSheet />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="h-9 w-9 cursor-pointer border border-border/50 transition-opacity hover:opacity-80">
+                  <AvatarImage
+                    src={session?.user?.image ?? undefined}
+                    alt={session?.user?.name || "User"}
+                  />
+                  <AvatarFallback className="bg-muted text-xs font-medium">
+                    {session?.user?.name ? (
+                      session.user.name.charAt(0).toUpperCase()
+                    ) : (
+                      <User className="size-4 text-muted-foreground" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {session?.user?.name || "User"}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground font-normal">
+                      {session?.user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive focus:bg-destructive/5 cursor-pointer"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="mr-2 size-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
-        {/* Content */}
         {projects.isLoading ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
