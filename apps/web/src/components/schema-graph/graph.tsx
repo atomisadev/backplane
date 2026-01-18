@@ -1,5 +1,4 @@
-"use client";
-
+// MODIFIED START: Fix selection box CSS to be visible and use proper color mixing
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   ReactFlow,
@@ -13,6 +12,7 @@ import {
   Edge,
   Node,
   OnNodesChange,
+  SelectionMode,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -33,6 +33,20 @@ const customStyles = `
   .react-flow__controls { display: none; }
   .react-flow__background { background-color: var(--background); }
   .react-flow__attribution { display: none; }
+  
+  /* Custom Selection Box - Fixed visibility */
+  .react-flow__selection {
+    background-color: color-mix(in srgb, var(--primary), transparent 85%);
+    border: 1px solid color-mix(in srgb, var(--primary), transparent 20%);
+    border-radius: 4px;
+    z-index: 1001; /* Ensure it's above other elements */
+  }
+
+  /* Nodes when selected */
+  .react-flow__node.selected .group\\/node {
+    box-shadow: 0 0 0 1px oklch(var(--primary) / 0.5), 0 4px 20px -2px oklch(var(--primary) / 0.2);
+    border-color: oklch(var(--primary) / 0.5);
+  }
 `;
 
 const nodeTypes = {
@@ -72,7 +86,7 @@ function GraphContent({
 }: DatabaseSchemaGraphContentProps) {
   const [showLabels, setShowLabels] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
-    "pointer",
+    "hand",
   );
   const [isLayouting, setIsLayouting] = useState(false);
   const { id: projectId } = useParams() as { id: string };
@@ -307,10 +321,13 @@ function GraphContent({
         fitView
         minZoom={0.1}
         maxZoom={1.5}
-        panOnDrag={interactionMode === "hand" || undefined}
-        selectionOnDrag={interactionMode === "pointer"}
-        nodesDraggable={interactionMode === "pointer"}
-        elementsSelectable={interactionMode === "pointer"}
+        nodesDraggable={true}
+        panOnDrag={interactionMode === "hand" ? true : [1, 2]}
+        selectionOnDrag={true}
+        selectionKeyCode={["Control", "Meta", "Shift"]}
+        multiSelectionKeyCode={["Control", "Meta", "Shift"]}
+        selectionMode={SelectionMode.Partial}
+        elementsSelectable={true}
         fitViewOptions={{ padding: 0.2 }}
         proOptions={{ hideAttribution: true }}
       >
@@ -346,22 +363,6 @@ function GraphContent({
             </div>
           )}
         </div>
-
-        {/* <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
-          <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
-            Schemas
-          </h3>
-          <div className="space-y-1.5">
-            {data.schemas.map((schema) => (
-              <div key={schema} className="flex items-center space-x-2">
-                <span className="flex h-2 w-2 rounded-full bg-primary" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  {schema}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div> */}
       </ReactFlow>
     </div>
   );

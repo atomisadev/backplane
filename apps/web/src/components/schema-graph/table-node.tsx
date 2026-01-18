@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SchemaNode, ColumnDefinition } from "../../lib/types";
 import { cn } from "@/lib/utils";
 
-const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
+const TableNodeComponent = ({ data, selected }: NodeProps<SchemaNode>) => {
   const { table, onAddColumn, onViewIndexes, onDeleteTable, onColumnClick } =
     data;
   const { fitView } = useReactFlow();
@@ -26,8 +26,22 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
   }, [table.columns, table.primaryKey]);
 
   return (
-    <div className="group/node relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
-      <div className="flex flex-col border-b border-border bg-muted/30 px-4 py-3 first:rounded-t-xl">
+    <div
+      className={cn(
+        "group/node relative min-w-[280px] rounded-xl border bg-card text-card-foreground shadow-sm transition-all duration-200",
+        selected
+          ? "border-primary/50 shadow-[0_0_20px_-5px_rgba(var(--primary),0.2)] ring-1 ring-primary/50"
+          : "border-border hover:shadow-lg hover:border-border/80",
+      )}
+    >
+      <div
+        className={cn(
+          "flex flex-col border-b px-4 py-3 first:rounded-t-xl transition-colors",
+          selected
+            ? "bg-primary/5 border-primary/20"
+            : "bg-muted/30 border-border",
+        )}
+      >
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <span className="rounded-[4px] border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -65,8 +79,18 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
           </div>
         </div>
         <div className="flex items-center justify-between w-full">
-          <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
-            <Database className="size-3.5 text-primary/70" />
+          <div
+            className={cn(
+              "font-semibold text-sm tracking-tight flex items-center gap-2",
+              selected ? "text-primary" : "text-foreground",
+            )}
+          >
+            <Database
+              className={cn(
+                "size-3.5",
+                selected ? "text-primary" : "text-primary/70",
+              )}
+            />
             {table.name}
           </div>
         </div>
