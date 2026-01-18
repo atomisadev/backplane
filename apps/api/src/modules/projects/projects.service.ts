@@ -25,7 +25,6 @@ const IGNORED_SCHEMAS = new Set([
   "pg_toast",
   "cron",
   "auth",
-  // MySQL system schemas
   "mysql",
   "performance_schema",
   "sys",
@@ -43,7 +42,6 @@ export const projectService = {
     let db: Knex | null = null;
     let schemaSnapshot: Prisma.InputJsonValue | null = null;
 
-    // Create knex client based on dbType
     const client =
       data.dbType === "postgres" || data.dbType === "postgresql"
         ? "pg"
@@ -56,11 +54,9 @@ export const projectService = {
     });
 
     try {
-      // Quick connectivity check
       await db.raw("SELECT 1");
 
       if (client === "pg") {
-        // Postgres path (use existing helpers)
         const allSchemas = await listSchemasPg(db as any);
 
         const schemas = allSchemas
@@ -138,19 +134,14 @@ export const projectService = {
           edges,
         } as unknown as Prisma.InputJsonValue;
       } else {
-        // MySQL path - prefer the current database (SELECT DATABASE()), otherwise fall back
-        // to querying information_schema.schemata. Normalize results robustly because
-        // different drivers (mysql2, mysql) and knex wrappers return differing shapes.
         let schemas: string[] = [];
         try {
-          // Try to get the current database first (this is the most common and explicit case)
           const currentDbRaw = await db.raw(`SELECT DATABASE() AS current_db;`);
           const currentDbRows = (currentDbRaw &&
             (currentDbRaw[0] ?? currentDbRaw.rows ?? currentDbRaw)) as any[];
           const currentDbVal =
             Array.isArray(currentDbRows) && currentDbRows.length > 0
-              ? // try multiple common property names
-                (currentDbRows[0].current_db ??
+              ? (currentDbRows[0].current_db ??
                 currentDbRows[0].DATABASE ??
                 currentDbRows[0].database ??
                 Object.values(currentDbRows[0])[0])
@@ -159,7 +150,6 @@ export const projectService = {
           if (typeof currentDbVal === "string" && currentDbVal.trim() !== "") {
             schemas = [currentDbVal];
           } else {
-            // Fallback to listing non-system schemas/databases
             const rawSchemas = await db.raw(
               `
               SELECT schema_name
@@ -177,7 +167,6 @@ export const projectService = {
               .filter(Boolean);
           }
         } catch (err) {
-          // If anything goes wrong, attempt the information_schema fallback directly
           try {
             const rawSchemas = await db.raw(
               `
@@ -195,7 +184,6 @@ export const projectService = {
               )
               .filter(Boolean);
           } catch (innerErr) {
-            // If even the fallback fails, leave schemas as empty and let the existing error handling raise later
             console.error(
               "Failed to detect MySQL schemas/databases:",
               err,
@@ -211,8 +199,6 @@ export const projectService = {
           );
         }
 
-        // For MySQL, we'll introspect the first non-system database by default
-        // (This mirrors previous Postgres behavior where multiple schemas were supported)
         const targetSchema = schemas[0];
 
         // tables
@@ -349,12 +335,10 @@ export const projectService = {
         },
       );
     } finally {
-      // Ensure connection is always destroyed
       if (db) {
         try {
           await db.destroy();
         } catch (e) {
-          // Log and continue
           console.error("Failed to destroy knex connection:", e);
         }
       }

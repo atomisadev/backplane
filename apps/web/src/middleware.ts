@@ -15,8 +15,6 @@ export async function middleware(request: NextRequest) {
   if (isRoot) {
     if (sessionToken) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
-    } else {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
     }
   }
 
