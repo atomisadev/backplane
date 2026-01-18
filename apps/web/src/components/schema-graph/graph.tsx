@@ -1,3 +1,4 @@
+// MODIFIED START: Fix selection box CSS to be visible and use proper color mixing
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import {
   ReactFlow,
@@ -302,7 +303,9 @@ function GraphContent({
     }, 50);
   }, [getNodes, getFlowEdges, setNodes, fitView, saveLayout]);
 
-  const onAddNode = useCallback(() => {}, []);
+  const onAddNode = useCallback(() => {
+    // alert("Add Table feature would trigger a modal here.");
+  }, []);
 
   return (
     <div className="w-full h-full relative">
