@@ -181,6 +181,11 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
+  console.log("ProjectID: ", id);
+  console.log(project);
+
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
+
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
