@@ -39,7 +39,12 @@ export type SchemaNodeData = {
 };
 
 export type PendingChange = {
-  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
+  type:
+    | "CREATE_COLUMN"
+    | "CREATE_TABLE"
+    | "UPDATE_COLUMN"
+    | "DROP_TABLE"
+    | "DELETE_COLUMN";
   schema: string;
   table: string;
   column?: ColumnDefinition;

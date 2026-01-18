@@ -7,6 +7,7 @@ export const ChangesDefinition = t.Array(
       t.Literal("CREATE_TABLE"),
       t.Literal("UPDATE_COLUMN"),
       t.Literal("DROP_TABLE"),
+      t.Literal("DELETE_COLUMN"),
     ]),
     schema: t.String(),
     table: t.String(),

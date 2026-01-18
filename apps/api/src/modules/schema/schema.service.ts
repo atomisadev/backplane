@@ -237,6 +237,15 @@ export const schemaService = {
           console.error("Failed to drop table:", error);
           throw new DatabaseError("Failed to drop table", error);
         }
+      } else if (type === "DELETE_COLUMN") {
+        try {
+          await pg.schema.withSchema(schema).alterTable(table, (table) => {
+            if (column) table.dropColumn(column?.name);
+          });
+        } catch (error) {
+          console.error("Failed to delete column:", error);
+          throw new DatabaseError("Failed to delete column", error);
+        }
       }
     }
 

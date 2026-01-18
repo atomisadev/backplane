@@ -98,7 +98,7 @@ export function ReviewChangesDialog({
                             </span>
                           </>
                         ) : change.type === "UPDATE_COLUMN" ? (
-                          <div className="flex flex-col gap-2 pt-1">
+                          <div className="flex flex-col gap-2">
                             {change.oldColumn?.name !== change.column?.name && (
                               <div className="text-sm flex items-center gap-2 truncate">
                                 <Columns className="size-3.5 text-muted-foreground/50" />
@@ -174,6 +174,22 @@ export function ReviewChangesDialog({
                               </div>
                             )}
                           </div>
+                        ) : change.type === "DELETE_COLUMN" ? (
+                          <>
+                            <Columns className="size-3.5 text-muted-foreground/50" />
+                            <span className="text-muted-foreground">
+                              Delete column
+                            </span>
+                            <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                              {change.column?.name || "unknown"}
+                            </code>
+                            <span className="text-muted-foreground text-xs">
+                              from
+                            </span>
+                            <span className="font-mono text-muted-foreground/80">
+                              {change.table}
+                            </span>
+                          </>
                         ) : (
                           <>
                             <Columns className="size-3.5 text-muted-foreground/50" />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -38,6 +38,11 @@ interface EditColumnSheetProps {
     schema: string,
     column: ColumnDefinition,
   ) => void;
+  deleteColumn: (
+    table: string,
+    schema: string,
+    column: ColumnDefinition,
+  ) => void;
 }
 
 export default function EditColumnSheet({
@@ -45,7 +50,10 @@ export default function EditColumnSheet({
   setOpen,
   columnInfo: { table, column },
   updateColumn,
+  deleteColumn,
 }: EditColumnSheetProps) {
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const existingColumns = useMemo(
     () => table.columns.map((c) => c.name),
     [table.columns],
@@ -74,8 +82,15 @@ export default function EditColumnSheet({
 
   const isNullable = useWatch({ control, name: "isNullable" });
 
+  const isPrimaryKey = useMemo(() => {
+    const pks = (table.primaryKey ?? []).map((k) => k.toLowerCase());
+    return pks.includes((column.name ?? "").toLowerCase());
+  }, [table.primaryKey, column.name]);
+
   useEffect(() => {
     if (!sheetOpen) return;
+
+    setDeleteError(null);
 
     reset({
       name: column.name ?? "",
@@ -99,7 +114,10 @@ export default function EditColumnSheet({
   };
 
   const topError =
-    errors.name?.message || errors.defaultValue?.message || undefined;
+    deleteError ||
+    errors.name?.message ||
+    errors.defaultValue?.message ||
+    undefined;
 
   return (
     <Dialog open={sheetOpen} onOpenChange={setOpen}>
@@ -198,7 +216,35 @@ export default function EditColumnSheet({
             </div>
           </div>
 
-          <DialogFooter className="px-6 py-4 bg-muted/5 border-t border-border/40">
+          <DialogFooter className="px-6 py-4 bg-muted/5 border-t border-border/40 w-full flex">
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                "h-8 text-xs font-medium gap-2",
+                isPrimaryKey
+                  ? "text-muted-foreground/60 cursor-not-allowed"
+                  : "hover:text-red-400",
+              )}
+              disabled={isPrimaryKey}
+              onClick={() => {
+                if (isPrimaryKey) {
+                  setDeleteError(
+                    "You can’t delete a primary key column. Drop or change the primary key first.",
+                  );
+                  return;
+                }
+                setDeleteError(null);
+                console.log(column);
+                deleteColumn(table.name, table.schema, column);
+                setOpen(false);
+              }}
+            >
+              Delete
+            </Button>
+
+            <div className="grow" />
+
             <Button
               type="button"
               variant="ghost"

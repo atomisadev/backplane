@@ -150,8 +150,11 @@ export default function ProjectView() {
         !droppedTableIds.has(edge.source) && !droppedTableIds.has(edge.target),
     );
 
+    const deletedColumns = new Set<string>();
+
     pendingChanges.forEach((change) => {
       if (change.type === "CREATE_COLUMN" && change.column) {
+        if (deletedColumns.has(change.column.name)) return;
         const node = clonedData.nodes.find(
           (n) => n.schema === change.schema && n.name === change.table,
         );
@@ -208,6 +211,17 @@ export default function ProjectView() {
           }
           // console.log("Mutated columns: ", column);
           // console.log("Previous name: ", change.schema);
+        }
+      } else if (change.type === "DELETE_COLUMN" && change.column) {
+        const node = clonedData.nodes.find(
+          (n) => n.schema === change.schema && n.name === change.table,
+        );
+        if (node) {
+          node.columns = node?.columns.filter(
+            (c) => c.name !== change.column?.name,
+          );
+
+          deletedColumns.add(change.column?.name);
         }
       }
     });
@@ -369,6 +383,22 @@ export default function ProjectView() {
       },
     ]);
     // console.log(columnInfo);
+  };
+
+  const handleColumnDelete = (
+    table: string,
+    schema: string,
+    column: ColumnDefinition,
+  ) => {
+    setPendingChanges([
+      ...pendingChanges,
+      {
+        type: "DELETE_COLUMN",
+        table: table,
+        schema,
+        column,
+      },
+    ]);
   };
 
   const filteredNodes = useMemo(() => {
@@ -607,6 +637,7 @@ export default function ProjectView() {
           sheetOpen={columnSheetOpen}
           setOpen={setColumnSheetOpen}
           updateColumn={handleColumnUpdate}
+          deleteColumn={handleColumnDelete}
         />
       </div>
     </SidebarProvider>
