@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { mockService } from "../modules/mock/mock.service";
-import { UnauthorizedError, ForbiddenError } from "../errors/handler";
+import { UnauthorizedError } from "../errors/handler";
 import { Prisma } from "@prisma/client";
 
 type MockSessionWithProject = Prisma.MockSessionGetPayload<{
@@ -9,29 +9,33 @@ type MockSessionWithProject = Prisma.MockSessionGetPayload<{
 
 export const mockAuthMiddleware = new Elysia({ name: "mock-auth" })
   .decorate("mockSession", null as MockSessionWithProject | null)
-  .derive(async ({ request: { headers } }) => {
-    const authHeader = headers.get("authorization");
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { mockSession: null };
-    }
-
-    const token = authHeader.slice(7);
-
-    try {
-      const session = await mockService.validateSession(token);
-      return { mockSession: session };
-    } catch (e) {
-      return { mockSession: null };
-    }
-  })
   .macro({
     requireMockAuth: {
-      async resolve({ mockSession, set }) {
-        if (!mockSession) {
+      async resolve({ request: { headers }, set }) {
+        const authHeader = headers.get("authorization");
+
+        if (!authHeader) {
           set.status = 401;
-          throw new UnauthorizedError("Invalid or expired mock session token");
+          throw new UnauthorizedError("Missing Authorization header");
         }
+
+        if (!authHeader.startsWith("Bearer ")) {
+          set.status = 401;
+          throw new UnauthorizedError(
+            "Invalid Authorization format. Expected 'Bearer <token>'",
+          );
+        }
+
+        const rawToken = authHeader.slice(7).trim();
+        if (!rawToken) {
+          set.status = 401;
+          throw new UnauthorizedError("Missing token");
+        }
+
+        const session = await mockService.validateSession(rawToken);
+
+        // This return makes it available to downstream handlers as `mockSession`
+        return { mockSession: session };
       },
     },
   });

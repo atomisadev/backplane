@@ -1,6 +1,5 @@
 import knex, { Knex } from "knex";
 import { DatabaseError, NotFoundError, UnauthorizedError } from "../../errors";
-import { keyof, StringFormatParams } from "better-auth/*";
 import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "../../db";
 
@@ -8,11 +7,6 @@ const generateToken = () => {
   const raw = randomBytes(32).toString("hex");
   const hash = createHash("sha256").update(raw).digest("hex");
   return { raw, hash };
-};
-
-const validateToken = (rawToken: string, storedHash: string) => {
-  const hash = createHash("sha256").update(rawToken).digest("hex");
-  return hash === storedHash;
 };
 
 const getPrimaryKey = async (
@@ -40,7 +34,22 @@ const getPrimaryKey = async (
   }
 
   const result = await query;
-  const pk = result?.pk_cols?.[0];
+
+  const raw = result?.pk_cols;
+
+  let pk: string | undefined;
+
+  if (Array.isArray(raw)) {
+    pk = raw[0];
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    const withoutBraces =
+      trimmed.startsWith("{") && trimmed.endsWith("}")
+        ? trimmed.slice(1, -1)
+        : trimmed;
+
+    pk = withoutBraces.split(",")[0]?.trim();
+  }
 
   if (!pk) {
     throw new DatabaseError(
@@ -75,13 +84,41 @@ export const mockService = {
 
     return {
       sessionId: session.id,
-      token: raw,
+      token: raw, // Correct: Returns raw token ONLY here
       expiresAt: session.expiresAt,
     };
   },
 
+  async getSessions(projectId: string, userId: string) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project || project.userId !== userId) {
+      throw new NotFoundError("Project not found");
+    }
+
+    const sessions = await prisma.mockSession.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+        // FIXED: Removed 'token: true' to prevent leaking the hash
+      },
+    });
+
+    return sessions;
+  },
+
   async validateSession(rawToken: string) {
+    // DEBUG: Kept logs for now to help you verify the fix with a NEW token
+    console.log(
+      `[MockService] Validating token (len=${rawToken.length}): ${rawToken.slice(0, 8)}...`,
+    );
     const hash = createHash("sha256").update(rawToken).digest("hex");
+    console.log(`[MockService] Computed Hash: ${hash.slice(0, 8)}...`);
 
     const session = await prisma.mockSession.findUnique({
       where: { token: hash },
@@ -89,10 +126,16 @@ export const mockService = {
     });
 
     if (!session) {
+      console.log(
+        `[MockService] No session found for hash: ${hash.slice(0, 8)}...`,
+      );
       throw new UnauthorizedError("Invalid mock session token");
     }
 
     if (new Date() > session.expiresAt) {
+      console.log(
+        `[MockService] Session expired at ${session.expiresAt.toISOString()}`,
+      );
       await prisma.mockSession
         .delete({ where: { id: session.id } })
         .catch(() => {});
@@ -186,8 +229,9 @@ export const mockService = {
         .returning("*");
 
       return inserted;
-    } catch (e) {
-      throw new DatabaseError("Failed to insert record", e);
+    } catch (e: any) {
+      const msg = e?.detail || e?.message || String(e);
+      throw new DatabaseError(`Failed to insert record: ${msg}`, e);
     }
   },
   async updateRecord(

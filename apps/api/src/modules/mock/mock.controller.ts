@@ -22,7 +22,14 @@ const getProjectConnection = async (projectID: string) => {
   return knex({
     client: "pg",
     connection: connectionString,
-    pool: { min: 0, max: 5 },
+    pool: {
+      min: 0,
+      max: 5,
+      acquireTimeoutMillis: 2000,
+      createTimeoutMillis: 2000,
+      idleTimeoutMillis: 30000,
+      reapIntervalMillis: 1000,
+    },
   });
 };
 
@@ -53,6 +60,53 @@ export const mockController = new Elysia({ prefix: "/mock" })
       }),
     },
   )
+  .get(
+    "/project/:projectId/sessions",
+    async ({ request, params: { projectId }, set }) => {
+      const authSession = await getAuthSession(request.headers);
+      if (!authSession) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
+
+      try {
+        const sessions = await mockService.getSessions(
+          projectId,
+          authSession.user.id,
+        );
+        return { success: true, data: sessions };
+      } catch (e) {
+        throw e;
+      }
+    },
+    {
+      params: t.Object({
+        projectId: t.String(),
+      }),
+    },
+  )
+  .delete(
+    "/session/:sessionId",
+    async ({ request, params: { sessionId }, set }) => {
+      const authSession = await getAuthSession(request.headers);
+      if (!authSession) {
+        set.status = 401;
+        return { success: false, message: "Unauthorized" };
+      }
+
+      try {
+        await mockService.endSession(sessionId, authSession.user.id);
+        return { success: true, message: "Session revoked" };
+      } catch (e) {
+        throw e;
+      }
+    },
+    {
+      params: t.Object({
+        sessionId: t.String(),
+      }),
+    },
+  )
   .group("/:projectID", (app) =>
     app
       .use(mockAuthMiddleware)
@@ -63,6 +117,14 @@ export const mockController = new Elysia({ prefix: "/mock" })
             "This session token is not valid for the requested project",
           );
         }
+      })
+      .get("/test", ({ params: { projectID } }) => {
+        return {
+          success: true,
+          message: "Mock session is active and authenticated.",
+          project: projectID,
+          timestamp: new Date().toISOString(),
+        };
       })
       .get(
         "/:tableName",
@@ -139,10 +201,11 @@ export const mockController = new Elysia({ prefix: "/mock" })
           const pg = await getProjectConnection(projectID);
 
           try {
+            const recordData = body as object;
             const res = await mockService.addRecord(
               pg,
               tableName,
-              body,
+              recordData,
               schema ?? "public",
             );
             set.status = 201;
@@ -159,7 +222,7 @@ export const mockController = new Elysia({ prefix: "/mock" })
           query: t.Object({
             schema: t.Optional(t.String()),
           }),
-          body: t.Object({}, { additionalProperties: true }),
+          body: t.Any(),
         },
       )
 
@@ -174,11 +237,12 @@ export const mockController = new Elysia({ prefix: "/mock" })
           const pg = await getProjectConnection(projectID);
 
           try {
+            const recordData = body as object;
             const res = await mockService.updateRecord(
               pg,
               tableName,
               id,
-              body,
+              recordData,
               schema ?? "public",
             );
             return { success: true, data: res };
@@ -195,7 +259,7 @@ export const mockController = new Elysia({ prefix: "/mock" })
           query: t.Object({
             schema: t.Optional(t.String()),
           }),
-          body: t.Object({}, { additionalProperties: true }),
+          body: t.Any(),
         },
       )
 
