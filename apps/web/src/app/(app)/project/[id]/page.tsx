@@ -14,7 +14,6 @@ import {
   SidebarInput,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -66,6 +65,7 @@ import { ColumnDefinition, PendingChange } from "@/lib/types";
 import { SchemaTreeItem } from "./_components/schema-tree-item";
 import EditColumnSheet from "./_components/edit-column-sheet";
 import { TableData } from "../../../../lib/types";
+import DeleteAllDialog from "./_components/delete-all-dialog";
 
 export default function ProjectView() {
   const { id } = useParams() as { id: string };
@@ -112,6 +112,7 @@ export default function ProjectView() {
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
   const [columnSheetOpen, setColumnSheetOpen] = useState(false);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
+  const [isDiscardAllOpen, setIsDiscardAllOpen] = useState(false);
 
   const [removeID, setRemoveID] = useState("");
   const [columnInfo, setColumnInfo] = useState<{
@@ -330,11 +331,9 @@ export default function ProjectView() {
   };
 
   const handleDiscardAll = () => {
-    if (confirm("Are you sure you want to discard all pending changes?")) {
-      setPendingChanges([]);
-      setIsReviewOpen(false);
-      toast.info("All changes discarded");
-    }
+    setPendingChanges([]);
+    setIsReviewOpen(false);
+    toast.info("All changes discarded");
   };
 
   const handleViewIndexesClick = useCallback(
@@ -427,6 +426,10 @@ export default function ProjectView() {
         column,
       },
     ]);
+  };
+
+  const handleDiscardClick = () => {
+    setIsDiscardAllOpen(true);
   };
 
   const filteredNodes = useMemo(() => {
@@ -699,7 +702,7 @@ export default function ProjectView() {
           onOpenChange={setIsReviewOpen}
           changes={pendingChanges}
           onRemoveChange={handleRemoveChange}
-          onDiscardAll={handleDiscardAll}
+          handleDiscardClick={handleDiscardClick}
           onPublish={handlePublish}
           isPublishing={isPublishing}
         />
@@ -718,6 +721,12 @@ export default function ProjectView() {
           setOpen={setColumnSheetOpen}
           updateColumn={handleColumnUpdate}
           deleteColumn={handleColumnDelete}
+        />
+
+        <DeleteAllDialog
+          dialogOpen={isDiscardAllOpen}
+          setOpen={setIsDiscardAllOpen}
+          onDeleteAll={handleDiscardAll}
         />
       </div>
     </SidebarProvider>

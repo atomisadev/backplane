@@ -19,7 +19,7 @@ interface ReviewChangesDialogProps {
   onOpenChange: (open: boolean) => void;
   changes: PendingChange[];
   onRemoveChange: (index: number) => void;
-  onDiscardAll: () => void;
+  handleDiscardClick: () => void;
   onPublish: () => void;
   isPublishing: boolean;
 }
@@ -29,7 +29,7 @@ export function ReviewChangesDialog({
   onOpenChange,
   changes,
   onRemoveChange,
-  onDiscardAll,
+  handleDiscardClick,
   onPublish,
   isPublishing,
 }: ReviewChangesDialogProps) {
@@ -229,9 +229,9 @@ export function ReviewChangesDialog({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onDiscardAll}
+            onClick={handleDiscardClick}
             disabled={changes.length === 0 || isPublishing}
-            className="text-muted-foreground hover:text-destructive hover:bg-transparent px-0 h-auto font-normal text-xs"
+            className="text-muted-foreground hover:text-destructive hover:bg-transparent px-0 h-8 font-normal text-xs"
           >
             <Trash2 className="size-3 mr-1.5" />
             Discard all
