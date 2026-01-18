@@ -335,7 +335,7 @@ function GraphContent({
           )}
         </div>
 
-        <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
+        {/* <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
           <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
             Schemas
           </h3>
@@ -349,7 +349,7 @@ function GraphContent({
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </ReactFlow>
     </div>
   );
