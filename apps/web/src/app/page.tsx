@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/logo";
 
 function FadeIn({
   children,
@@ -81,22 +82,6 @@ function GridBackground() {
   );
 }
 
-function Logo({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 font-bold tracking-tight",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-center size-8 rounded-lg bg-foreground text-background">
-        <Command className="size-4" />
-      </div>
-      <span className="text-lg">Backplane</span>
-    </div>
-  );
-}
-
 function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -118,12 +103,7 @@ function Navbar() {
       )}
     >
       <div className="flex items-center gap-2">
-        <Logo
-          className={cn(
-            "transition-all duration-500",
-            isScrolled ? "scale-90" : "scale-100",
-          )}
-        />
+        <Logo />
       </div>
       <div className="flex items-center gap-4">
         <Link
@@ -491,7 +471,7 @@ function Footer() {
     <footer className="border-t border-white/10 py-12 px-6 bg-black/40">
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-          <Logo className="scale-90 opacity-60 hover:opacity-100 transition-opacity" />
+          <Logo />
         </div>
 
         <div className="text-sm text-muted-foreground/40 font-mono">
