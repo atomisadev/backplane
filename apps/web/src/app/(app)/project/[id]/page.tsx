@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useProject } from "@/hooks/use-project";
 import { useParams, useRouter } from "next/navigation";
 import { DatabaseSchemaGraph } from "@/components/database-schema-graph";
@@ -47,6 +47,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useApplySchemaChanges } from "@/hooks/use-schema";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import RemoveTableDialog from "./_components/remove-table-dialog";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
@@ -151,9 +152,29 @@ export default function ProjectView() {
     [],
   );
 
+  const [deletedTables, setDeletedTables] = useLocalStorage<string[]>(
+    `${id}.deletions`,
+    [],
+  );
+  const [removeID, setRemoveID] = useState("");
+
   const mutateSchema = useApplySchemaChanges(id);
   const queryClient = useQueryClient();
   const [isPublishing, setIsPublishing] = useState(false);
+
+  const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+
+  useEffect(() => {
+    setPendingChanges(
+      pendingChanges.filter((change) => {
+        // Weird edge case
+        // if (change.type === "CREATE_TABLE" && deletedTables.includes(`${change.schema}.${change.table}`)) {
+        //   setDeletedTables(deletedTables.filter((deleted) => deleted === `${change.schema}.${change.table}`));
+        // }
+        return !deletedTables.includes(`${change.schema}.${change.table}`);
+      }),
+    );
+  }, [deletedTables]);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -215,8 +236,29 @@ export default function ProjectView() {
       }
     });
 
+    clonedData.nodes = clonedData.nodes.filter((node) => {
+      return !deletedTables.includes(node.id);
+    });
+
+    clonedData.edges = clonedData.edges.filter((edge) => {
+      return !(
+        deletedTables.includes(edge.source) ||
+        deletedTables.includes(edge.target)
+      );
+    });
+
+    const freqSchema = new Set();
+
+    clonedData.nodes.forEach((node) => {
+      freqSchema.add(node.schema);
+    });
+
+    clonedData.schemas = clonedData.schemas.filter((schema) =>
+      freqSchema.has(schema),
+    );
+
     return clonedData;
-  }, [project, pendingChanges]);
+  }, [project, pendingChanges, deletedTables]);
 
   const handleQueueColumnAdd = useCallback(
     (colDef: ColumnDefinition) => {
@@ -268,6 +310,16 @@ export default function ProjectView() {
     },
     [],
   );
+
+  const handleRemoveTable = (id: string) => {
+    console.log("should have opened dialog");
+    setRemoveID(id);
+    setIsRemoveOpen(true);
+  };
+
+  const handleDeleteTable = () => {
+    setDeletedTables([...deletedTables, removeID]);
+  };
 
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
@@ -465,6 +517,7 @@ export default function ProjectView() {
                   setChanges={setPendingChanges}
                   onAddColumn={handleAddColumnClick}
                   onViewIndexes={handleViewIndexesClick}
+                  onDeleteTable={handleRemoveTable}
                 />
               )}
             </div>
@@ -482,6 +535,12 @@ export default function ProjectView() {
           open={isViewIndexesOpen}
           onOpenChange={setIsViewIndexesOpen}
           targetTable={indexesTable}
+        />
+
+        <RemoveTableDialog
+          open={isRemoveOpen}
+          setOpen={setIsRemoveOpen}
+          handleDeleteTable={handleDeleteTable}
         />
       </div>
     </SidebarProvider>
