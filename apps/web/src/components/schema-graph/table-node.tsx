@@ -1,12 +1,20 @@
 import React, { memo, useMemo } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { Key, Database, GripHorizontal, Plus, List } from "lucide-react";
+import {
+  Key,
+  Database,
+  GripHorizontal,
+  Plus,
+  List,
+  Grip,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SchemaNode } from "./types";
 import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
-  const { table, onAddColumn, onViewIndexes } = data;
+  const { table, onAddColumn, onViewIndexes, onDeleteTable } = data;
 
   // MODIFIED START: Sort columns to ensure PK is always at the top
   const sortedColumns = useMemo(() => {
@@ -34,11 +42,22 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
               {table.schema}
             </span>
           </div>
-          <GripHorizontal className="size-4 text-muted-foreground/20" />
+          <Button
+            size="icon"
+            className="h-8 w-8 mr-[-8] bg-transparent rounded-full hover:bg-muted text-muted-foreground"
+            onClick={() => {
+              console.log(onDeleteTable);
+              if (onDeleteTable) onDeleteTable(table.id);
+            }}
+          >
+            <Trash2 className="size-3.5 text-primary/70" />
+          </Button>
         </div>
-        <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
-          <Database className="size-3.5 text-primary/70" />
-          {table.name}
+        <div className="flex items-center justify-between w-full">
+          <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
+            <Database className="size-3.5 text-primary/70" />
+            {table.name}
+          </div>
         </div>
       </div>
 

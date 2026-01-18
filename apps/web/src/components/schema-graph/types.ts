@@ -28,6 +28,7 @@ export type SchemaNodeData = {
     table: string,
     columns: ColumnDefinition[],
   ) => void;
+  onDeleteTable?: (id: string) => void;
 };
 
 export type SchemaNode = Node<SchemaNodeData, "table">;
