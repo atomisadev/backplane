@@ -98,27 +98,82 @@ export function ReviewChangesDialog({
                             </span>
                           </>
                         ) : change.type === "UPDATE_COLUMN" ? (
-                          <>
-                            <Columns className="size-3.5 text-muted-foreground/50" />
-                            <span className="text-muted-foreground">
-                              Edit column
-                            </span>
-                            <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
-                              {change.oldColumn?.name || "unknown"}
-                            </code>
-                            <span className="text-muted-foreground text-xs">
-                              in
-                            </span>
-                            <span className="font-mono text-muted-foreground/80">
-                              {change.table}
-                            </span>
-                            <span className="text-muted-foreground text-xs">
-                              to
-                            </span>
-                            <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
-                              {change.column?.name || "unknown"}
-                            </code>
-                          </>
+                          <div className="flex flex-col gap-2 pt-1">
+                            {change.oldColumn?.name !== change.column?.name && (
+                              <div className="text-sm flex items-center gap-2 truncate">
+                                <Columns className="size-3.5 text-muted-foreground/50" />
+                                <span className="text-muted-foreground">
+                                  Edit column
+                                </span>
+                                <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                                  {change.oldColumn?.name || "unknown"}
+                                </code>
+                                <span className="text-muted-foreground text-xs">
+                                  in
+                                </span>
+                                <span className="font-mono text-muted-foreground/80">
+                                  {change.table}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                  to
+                                </span>
+                                <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                                  {change.column?.name || "unknown"}
+                                </code>
+                              </div>
+                            )}
+
+                            {change.oldColumn?.nullable !==
+                              change.column?.nullable && (
+                              <div className="text-sm flex items-center gap-2 truncate">
+                                <Columns className="size-3.5 text-muted-foreground/50" />
+                                <span className="text-muted-foreground">
+                                  Edit column
+                                </span>
+                                <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                                  {change.oldColumn?.name || "unknown"}
+                                </code>
+                                <span className="text-muted-foreground text-xs">
+                                  in
+                                </span>
+                                <span className="font-mono text-muted-foreground/80">
+                                  {change.table}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  is{" "}
+                                  {change.column?.nullable
+                                    ? "now"
+                                    : "no longer"}{" "}
+                                  nullable.
+                                </span>
+                              </div>
+                            )}
+
+                            {change.oldColumn?.defaultValue !==
+                              change.column?.defaultValue && (
+                              <div className="text-sm flex items-center gap-2 truncate">
+                                <Columns className="size-3.5 text-muted-foreground/50" />
+                                <span className="text-muted-foreground">
+                                  Changed default value of column
+                                </span>
+                                <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                                  {change.oldColumn?.name || "unknown"}
+                                </code>
+                                <span className="text-muted-foreground text-xs">
+                                  in
+                                </span>
+                                <span className="font-mono text-muted-foreground/80">
+                                  {change.table}
+                                </span>
+                                <span className="text-muted-foreground text-xs">
+                                  to
+                                </span>
+                                <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
+                                  {change.column?.defaultValue}
+                                </code>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <>
                             <Columns className="size-3.5 text-muted-foreground/50" />
