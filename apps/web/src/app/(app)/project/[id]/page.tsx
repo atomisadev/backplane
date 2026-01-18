@@ -66,6 +66,7 @@ import { SchemaTreeItem } from "./_components/schema-tree-item";
 import EditColumnSheet from "./_components/edit-column-sheet";
 import { TableData } from "../../../../lib/types";
 import DeleteAllDialog from "./_components/delete-all-dialog";
+import { useUndoState } from "@/hooks/use-undo-state";
 
 export default function ProjectView() {
   const { id } = useParams() as { id: string };
@@ -90,10 +91,10 @@ export default function ProjectView() {
   // console.log("ProjectID: ", id);
   // console.log(project);
 
-  const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
-    `${id}.changes`,
-    [],
-  );
+  // const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
+  //   `${id}.changes`,
+  //   [],
+  // );
   const [hiddenTableIds, setHiddenTableIds] = useState<Set<string>>(new Set());
   const toggleTableVisibility = useCallback((nodeId: string) => {
     setHiddenTableIds((prev) => {
@@ -106,6 +107,16 @@ export default function ProjectView() {
       return next;
     });
   }, []);
+
+  const {
+    state: pendingChanges,
+    setState: setPendingChanges,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clearHistory,
+  } = useUndoState<PendingChange[]>(`${id}.changes`, []);
 
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -314,6 +325,7 @@ export default function ProjectView() {
       await queryClient.invalidateQueries({ queryKey: ["project", id] });
       await queryClient.invalidateQueries({ queryKey: ["schema-indexes", id] });
       setPendingChanges([]);
+      clearHistory();
       toast.dismiss(toastId);
       toast.success("Schema updated successfully");
       setIsReviewOpen(false);
@@ -678,6 +690,10 @@ export default function ProjectView() {
                   onAddColumn={handleAddColumnClick}
                   onViewIndexes={handleViewIndexesClick}
                   onDeleteTable={handleRemoveTable}
+                  undo={undo}
+                  redo={redo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
                 />
               )}
             </div>

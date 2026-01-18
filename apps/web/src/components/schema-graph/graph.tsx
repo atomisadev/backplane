@@ -51,6 +51,10 @@ interface DatabaseSchemaGraphContentProps {
   onDeleteTable: (id: string) => void;
   currentChanges: PendingChange[];
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
+  undo?: () => void;
+  redo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 function GraphContent({
@@ -61,6 +65,10 @@ function GraphContent({
   onColumnClick,
   currentChanges,
   setChanges,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 }: DatabaseSchemaGraphContentProps) {
   const [showLabels, setShowLabels] = useState(false);
   const [interactionMode, setInteractionMode] = useState<"pointer" | "hand">(
@@ -324,6 +332,10 @@ function GraphContent({
           setInteractionMode={setInteractionMode}
           onAutoLayout={handleAutoLayout}
           isLayouting={isLayouting}
+          undo={undo}
+          redo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
         />
 
         <div className="absolute bottom-4 right-4 z-10 pointer-events-none">
@@ -335,7 +347,7 @@ function GraphContent({
           )}
         </div>
 
-        <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
+        {/* <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border border-border rounded-lg shadow-sm p-3 max-w-[200px] z-10">
           <h3 className="font-semibold text-xs text-foreground mb-2 px-1">
             Schemas
           </h3>
@@ -349,7 +361,7 @@ function GraphContent({
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </ReactFlow>
     </div>
   );
@@ -363,6 +375,10 @@ export function DatabaseSchemaGraph({
   currentChanges,
   onColumnClick,
   setChanges,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 }: {
   data: DbSchemaGraphData;
   currentChanges: PendingChange[];
@@ -375,6 +391,10 @@ export function DatabaseSchemaGraph({
   onDeleteTable: (id: string) => void;
   onColumnClick: (table: TableData, column: ColumnDefinition) => void;
   setChanges: React.Dispatch<React.SetStateAction<PendingChange[]>>;
+  undo?: () => void;
+  redo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }) {
   return (
     <ReactFlowProvider>
@@ -386,6 +406,10 @@ export function DatabaseSchemaGraph({
         onViewIndexes={onViewIndexes}
         currentChanges={currentChanges}
         setChanges={setChanges}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
     </ReactFlowProvider>
   );
