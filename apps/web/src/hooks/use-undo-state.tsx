@@ -1,73 +1,100 @@
-import { useState, useCallback } from "react";
-import { useLocalStorage } from "./useLocalStorage";
+import { useState, useCallback, useEffect } from "react";
+
+interface HistoryState<T> {
+  past: T[];
+  present: T;
+  future: T[];
+}
 
 export function useUndoState<T>(key: string, initialValue: T) {
-  const [state, _setState] = useLocalStorage<T>(key, initialValue);
+  const [history, setHistory] = useState<HistoryState<T>>(() => {
+    if (typeof window === "undefined") {
+      return { past: [], present: initialValue, future: [] };
+    }
+    try {
+      const item = window.localStorage.getItem(key);
+      const present = item ? JSON.parse(item) : initialValue;
+      return { past: [], present, future: [] };
+    } catch (error) {
+      return { past: [], present: initialValue, future: [] };
+    }
+  });
 
-  const [past, setPast] = useState<T[]>([]);
-  const [future, setFuture] = useState<T[]>([]);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(history.present));
+    } catch (error) {
+      console.error("Failed to save to local storage", error);
+    }
+  }, [key, history.present]);
 
-  const setState = useCallback(
-    (newState: T | ((prev: T) => T)) => {
-      _setState((currentState) => {
-        const valueToStore =
-          newState instanceof Function ? newState(currentState) : newState;
+  const setState = useCallback((newStateOrUpdater: T | ((prev: T) => T)) => {
+    setHistory((curr) => {
+      const { present, past } = curr;
+      const newState =
+        typeof newStateOrUpdater === "function"
+          ? (newStateOrUpdater as Function)(present)
+          : newStateOrUpdater;
 
-        if (valueToStore === currentState) return currentState;
+      if (JSON.stringify(newState) === JSON.stringify(present)) {
+        return curr;
+      }
 
-        setPast((prev) => [...prev, currentState]);
-        setFuture([]);
-
-        return valueToStore;
-      });
-    },
-    [_setState],
-  );
+      return {
+        past: [...past, present],
+        present: newState,
+        future: [],
+      };
+    });
+  }, []);
 
   const undo = useCallback(() => {
-    setPast((prevPast) => {
-      if (prevPast.length === 0) return prevPast;
+    setHistory((curr) => {
+      const { past, present, future } = curr;
+      if (past.length === 0) return curr;
 
-      const newPast = [...prevPast];
-      const previousState = newPast.pop();
+      const previous = past[past.length - 1];
+      const newPast = past.slice(0, past.length - 1);
 
-      _setState((currentState) => {
-        setFuture((prevFuture) => [currentState, ...prevFuture]);
-        return previousState as T;
-      });
-
-      return newPast;
+      return {
+        past: newPast,
+        present: previous,
+        future: [present, ...future],
+      };
     });
-  }, [_setState]);
+  }, []);
 
   const redo = useCallback(() => {
-    setFuture((prevFuture) => {
-      if (prevFuture.length === 0) return prevFuture;
+    setHistory((curr) => {
+      const { past, present, future } = curr;
+      if (future.length === 0) return curr;
 
-      const newFuture = [...prevFuture];
-      const nextState = newFuture.shift();
+      const next = future[0];
+      const newFuture = future.slice(1);
 
-      _setState((currentState) => {
-        setPast((prevPast) => [...prevPast, currentState]);
-        return nextState as T;
-      });
-
-      return newFuture;
+      return {
+        past: [...past, present],
+        present: next,
+        future: newFuture,
+      };
     });
-  }, [_setState]);
+  }, []);
 
   const clearHistory = useCallback(() => {
-    setPast([]);
-    setFuture([]);
+    setHistory((curr) => ({
+      ...curr,
+      past: [],
+      future: [],
+    }));
   }, []);
 
   return {
-    state,
+    state: history.present,
     setState,
     undo,
     redo,
-    canUndo: past.length > 0,
-    canRedo: future.length > 0,
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
     clearHistory,
   };
 }

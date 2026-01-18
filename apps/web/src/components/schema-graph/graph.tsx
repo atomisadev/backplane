@@ -406,6 +406,10 @@ export function DatabaseSchemaGraph({
         onViewIndexes={onViewIndexes}
         currentChanges={currentChanges}
         setChanges={setChanges}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
     </ReactFlowProvider>
   );
