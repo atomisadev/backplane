@@ -127,9 +127,8 @@ export const schemaService = {
     changes: ChangesDefinitionType,
     projectId: string,
   ) {
-    // Process all changes sequentially to ensure they complete
     for (const { type, schema, column, table } of changes) {
-      if (type === "CREATE_COLUMN") {
+      if (type === "CREATE_COLUMN" && column) {
         try {
           await pg.schema.withSchema(schema).table(table, (t) => {
             const col = t.specificType(column.name, column.type);
@@ -146,7 +145,7 @@ export const schemaService = {
           console.error("Failed to create column:", error);
           throw new DatabaseError("Failed to create column", error);
         }
-      } else if (type === "CREATE_TABLE") {
+      } else if (type === "CREATE_TABLE" && column) {
         try {
           await pg.schema.withSchema(schema).createTable(table, (t) => {
             const colBuilder = t.specificType(column.name, column.type);
@@ -174,10 +173,16 @@ export const schemaService = {
           console.error("Failed to create table:", error);
           throw new DatabaseError("Failed to create table", error);
         }
+      } else if (type === "DROP_TABLE") {
+        try {
+          await pg.schema.withSchema(schema).dropTable(table);
+        } catch (error) {
+          console.error("Failed to drop table:", error);
+          throw new DatabaseError("Failed to drop table", error);
+        }
       }
     }
 
-    // After all mutations are complete, re-introspect the database and update the snapshot
     const IGNORED_SCHEMAS = new Set([
       "information_schema",
       "pg_catalog",
@@ -257,15 +262,12 @@ export const schemaService = {
         edges,
       } as unknown as Prisma.InputJsonValue;
 
-      // Update the schema snapshot in the database
       await prisma.project.update({
         where: { id: projectId },
         data: { schemaSnapshot },
       });
     } catch (error) {
       console.error("Failed to update schema snapshot:", error);
-      // Don't throw here - the mutations succeeded, snapshot update failure shouldn't fail the whole operation
-      // but we should log it
     }
 
     return { success: true };

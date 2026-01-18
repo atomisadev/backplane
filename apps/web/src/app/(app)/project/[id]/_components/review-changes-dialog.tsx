@@ -72,6 +72,10 @@ export function ReviewChangesDialog({
                           <span className="text-[10px] font-medium uppercase tracking-wider text-foreground/70">
                             Create Table
                           </span>
+                        ) : change.type === "DROP_TABLE" ? (
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-destructive">
+                            Drop Table
+                          </span>
                         ) : (
                           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                             Update Table
@@ -87,6 +91,13 @@ export function ReviewChangesDialog({
                               {change.table}
                             </span>
                           </>
+                        ) : change.type === "DROP_TABLE" ? (
+                          <>
+                            <Trash2 className="size-3.5 text-destructive/50" />
+                            <span className="font-mono text-destructive font-medium line-through opacity-80">
+                              {change.table}
+                            </span>
+                          </>
                         ) : (
                           <>
                             <Columns className="size-3.5 text-muted-foreground/50" />
@@ -94,7 +105,7 @@ export function ReviewChangesDialog({
                               Add column
                             </span>
                             <code className="font-mono text-foreground font-medium bg-muted/50 px-1 rounded-[2px]">
-                              {change.column.name}
+                              {change.column?.name || "unknown"}
                             </code>
                             <span className="text-muted-foreground text-xs">
                               to

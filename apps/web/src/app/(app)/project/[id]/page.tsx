@@ -23,14 +23,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   ArrowLeft,
   ChevronRight,
   Search,
@@ -40,10 +32,8 @@ import {
   Key,
   LayoutGrid,
   Settings,
-  Save,
   ListRestart,
   Loader2,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -61,10 +51,10 @@ import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 import RemoveTableDialog from "./_components/remove-table-dialog";
 
 export type PendingChange = {
-  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN";
+  type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
   schema: string;
   table: string;
-  column: ColumnDefinition;
+  column?: ColumnDefinition;
 };
 
 function SchemaTreeItem({
@@ -158,18 +148,12 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
-
   const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
     `${id}.changes`,
     [],
   );
 
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [deletedTables, setDeletedTables] = useLocalStorage<string[]>(
-    `${id}.deletions`,
-    [],
-  );
   const [removeID, setRemoveID] = useState("");
 
   const mutateSchema = useApplySchemaChanges(id);
@@ -177,18 +161,6 @@ export default function ProjectView() {
   const [isPublishing, setIsPublishing] = useState(false);
 
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
-
-  useEffect(() => {
-    setPendingChanges(
-      pendingChanges.filter((change) => {
-        // Weird edge case
-        // if (change.type === "CREATE_TABLE" && deletedTables.includes(`${change.schema}.${change.table}`)) {
-        //   setDeletedTables(deletedTables.filter((deleted) => deleted === `${change.schema}.${change.table}`));
-        // }
-        return !deletedTables.includes(`${change.schema}.${change.table}`);
-      }),
-    );
-  }, [deletedTables]);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -210,8 +182,23 @@ export default function ProjectView() {
 
     const clonedData = JSON.parse(JSON.stringify(baseData)) as DbSchemaGraph;
 
+    const droppedTableIds = new Set<string>();
     pendingChanges.forEach((change) => {
-      if (change.type === "CREATE_COLUMN") {
+      if (change.type === "DROP_TABLE") {
+        droppedTableIds.add(`${change.schema}.${change.table}`);
+      }
+    });
+
+    clonedData.nodes = clonedData.nodes.filter(
+      (node) => !droppedTableIds.has(node.id),
+    );
+    clonedData.edges = clonedData.edges.filter(
+      (edge) =>
+        !droppedTableIds.has(edge.source) && !droppedTableIds.has(edge.target),
+    );
+
+    pendingChanges.forEach((change) => {
+      if (change.type === "CREATE_COLUMN" && change.column) {
         const node = clonedData.nodes.find(
           (n) => n.schema === change.schema && n.name === change.table,
         );
@@ -223,11 +210,11 @@ export default function ProjectView() {
             nullable: change.column.nullable,
             default: change.column.defaultValue || null,
             position: node.columns.length + 1,
-            // @ts-ignore - Injecting UI-only flag
+            // @ts-ignore
             isPending: true,
           });
         }
-      } else if (change.type === "CREATE_TABLE") {
+      } else if (change.type === "CREATE_TABLE" && change.column) {
         clonedData.nodes.push({
           id: `${change.schema}.${change.table}`,
           name: change.table,
@@ -242,7 +229,7 @@ export default function ProjectView() {
               nullable: change.column.nullable,
               default: change.column.defaultValue || null,
               position: 1,
-              // @ts-ignore - Injecting UI-only flag
+              // @ts-ignore
               isPending: true,
             },
           ],
@@ -250,19 +237,7 @@ export default function ProjectView() {
       }
     });
 
-    clonedData.nodes = clonedData.nodes.filter((node) => {
-      return !deletedTables.includes(node.id);
-    });
-
-    clonedData.edges = clonedData.edges.filter((edge) => {
-      return !(
-        deletedTables.includes(edge.source) ||
-        deletedTables.includes(edge.target)
-      );
-    });
-
     const freqSchema = new Set();
-
     clonedData.nodes.forEach((node) => {
       freqSchema.add(node.schema);
     });
@@ -272,7 +247,7 @@ export default function ProjectView() {
     );
 
     return clonedData;
-  }, [project, pendingChanges, deletedTables]);
+  }, [project, pendingChanges]);
 
   const handleQueueColumnAdd = useCallback(
     (colDef: ColumnDefinition) => {
@@ -288,7 +263,7 @@ export default function ProjectView() {
         },
       ]);
     },
-    [selectedTable],
+    [selectedTable, setPendingChanges],
   );
 
   const handleAddColumnClick = useCallback(
@@ -333,16 +308,6 @@ export default function ProjectView() {
     }
   };
 
-  const handleDiscardChanges = useCallback(() => {
-    setIsDiscardDialogOpen(true);
-  }, []);
-
-  const confirmDiscard = useCallback(() => {
-    setPendingChanges([]);
-    setIsDiscardDialogOpen(false);
-    toast.info("Pending changes discarded");
-  }, [setPendingChanges]);
-
   const handleViewIndexesClick = useCallback(
     (schema: string, table: string) => {
       setIndexesTable({ schema, name: table });
@@ -352,13 +317,39 @@ export default function ProjectView() {
   );
 
   const handleRemoveTable = (id: string) => {
-    console.log("should have opened dialog");
     setRemoveID(id);
     setIsRemoveOpen(true);
   };
 
   const handleDeleteTable = () => {
-    setDeletedTables([...deletedTables, removeID]);
+    const parts = removeID.split(".");
+    if (parts.length < 2) return;
+
+    const schema = parts[0];
+    const table = parts.slice(1).join(".");
+
+    const isLocalCreation = pendingChanges.some(
+      (c) =>
+        c.type === "CREATE_TABLE" && c.schema === schema && c.table === table,
+    );
+
+    if (isLocalCreation) {
+      setPendingChanges((prev) =>
+        prev.filter((c) => !(c.schema === schema && c.table === table)),
+      );
+      toast.info(`Table "${table}" creation cancelled`);
+    } else {
+      setPendingChanges((prev) => [
+        ...prev,
+        {
+          type: "DROP_TABLE",
+          schema,
+          table,
+        },
+      ]);
+      toast.warning(`Table "${table}" marked for deletion`);
+    }
+    setIsRemoveOpen(false);
   };
 
   const filteredNodes = useMemo(() => {
