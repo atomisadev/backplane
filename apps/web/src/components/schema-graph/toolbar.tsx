@@ -36,6 +36,10 @@ interface GraphToolbarProps {
   setInteractionMode: (v: "pointer" | "hand") => void;
   onAutoLayout: () => void;
   isLayouting: boolean;
+  undo?: () => void;
+  redo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export function GraphToolbar({
@@ -49,6 +53,10 @@ export function GraphToolbar({
   setInteractionMode,
   onAutoLayout,
   isLayouting,
+  undo,
+  redo,
+  canUndo,
+  canRedo,
 }: GraphToolbarProps) {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
@@ -73,7 +81,8 @@ export function GraphToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground"
-                  onClick={() => {}}
+                  onClick={undo}
+                  disabled={!canUndo}
                 >
                   <Undo2 className="size-4" />
                 </Button>
@@ -86,7 +95,8 @@ export function GraphToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 rounded-full hover:bg-muted text-muted-foreground"
-                  onClick={() => {}}
+                  onClick={redo}
+                  disabled={!canRedo}
                 >
                   <Redo2 className="size-4" />
                 </Button>
