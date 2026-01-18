@@ -36,6 +36,7 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Terminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
@@ -51,6 +52,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ReviewChangesDialog } from "./_components/review-changes-dialog";
 import RemoveTableDialog from "./_components/remove-table-dialog";
+import { MockSessionDialog } from "./_components/mock-session-dialog";
 
 export type PendingChange = {
   type: "CREATE_COLUMN" | "CREATE_TABLE" | "UPDATE_COLUMN" | "DROP_TABLE";
@@ -213,6 +215,8 @@ export default function ProjectView() {
   const [isPublishing, setIsPublishing] = useState(false);
 
   const [isRemoveOpen, setIsRemoveOpen] = useState(false);
+
+  const [isMockDialogOpen, setIsMockDialogOpen] = useState(false);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -597,6 +601,14 @@ export default function ProjectView() {
                   variant="ghost"
                   size="icon-sm"
                   className="h-7 w-7 rounded-md hover:bg-muted"
+                  onClick={() => setIsMockDialogOpen(true)}
+                >
+                  <Terminal className="size-3.5 text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="h-7 w-7 rounded-md hover:bg-muted"
                 >
                   <Search className="size-3.5 text-muted-foreground" />
                 </Button>
@@ -653,6 +665,10 @@ export default function ProjectView() {
           open={isRemoveOpen}
           setOpen={setIsRemoveOpen}
           handleDeleteTable={handleDeleteTable}
+        />
+        <MockSessionDialog
+          open={isMockDialogOpen}
+          onOpenChange={setIsMockDialogOpen}
         />
       </div>
     </SidebarProvider>

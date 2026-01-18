@@ -27,7 +27,10 @@ const app = new Elysia()
   })
   .use(introspectController)
   .get("/", () => "Hello Elysia")
-  .listen(3001);
+  .listen({
+    port: 3001,
+    hostname: "0.0.0.0",
+  });
 
 export type App = typeof app;
 
