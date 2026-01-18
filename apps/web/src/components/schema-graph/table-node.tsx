@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react";
 import {
   Key,
   Database,
@@ -8,6 +8,7 @@ import {
   List,
   Grip,
   Trash2,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SchemaNode } from "./types";
@@ -15,8 +16,8 @@ import { cn } from "@/lib/utils";
 
 const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
   const { table, onAddColumn, onViewIndexes, onDeleteTable } = data;
+  const { fitView } = useReactFlow();
 
-  // MODIFIED START: Sort columns to ensure PK is always at the top
   const sortedColumns = useMemo(() => {
     const pkCols = [];
     const otherCols = [];
@@ -31,10 +32,9 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
 
     return [...pkCols, ...otherCols];
   }, [table.columns, table.primaryKey]);
-  // MODIFIED END
 
   return (
-    <div className="relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
+    <div className="group/node relative min-w-[280px] rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-all hover:shadow-lg hover:ring-1 hover:ring-primary/20">
       <div className="flex flex-col border-b border-border bg-muted/30 px-4 py-3 first:rounded-t-xl">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
@@ -42,16 +42,35 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
               {table.schema}
             </span>
           </div>
-          <Button
-            size="icon"
-            className="h-8 w-8 mr-[-8] bg-transparent rounded-full hover:bg-muted text-muted-foreground"
-            onClick={() => {
-              console.log(onDeleteTable);
-              if (onDeleteTable) onDeleteTable(table.id);
-            }}
-          >
-            <Trash2 className="size-3.5 text-primary/70" />
-          </Button>
+          <div className="flex items-center -mr-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-muted-foreground hover:bg-background hover:text-foreground hover:shadow-sm opacity-0 group-hover/node:opacity-100 transition-opacity duration-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                fitView({
+                  nodes: [{ id: table.id }],
+                  padding: 0.5,
+                  duration: 1000,
+                  maxZoom: 1,
+                });
+              }}
+            >
+              <Eye className="size-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDeleteTable) onDeleteTable(table.id);
+              }}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
         </div>
         <div className="flex items-center justify-between w-full">
           <div className="font-semibold text-sm tracking-tight flex items-center gap-2">
@@ -62,7 +81,6 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
       </div>
 
       <div className="flex flex-col py-1">
-        {/* MODIFIED START: Map over sortedColumns instead of table.columns */}
         {sortedColumns.map((column) => {
           const isPk = table.primaryKey.includes(column.name);
           const isPending = column.isPending;
@@ -126,7 +144,6 @@ const TableNodeComponent = ({ data }: NodeProps<SchemaNode>) => {
             </div>
           );
         })}
-        {/* MODIFIED END */}
       </div>
 
       <div className="flex items-center border-t border-border/50 bg-muted/10 p-1.5 gap-1.5 rounded-b-xl">
