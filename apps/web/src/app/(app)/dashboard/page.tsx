@@ -1,7 +1,7 @@
 "use client";
 
 import { useProjects } from "@/hooks/use-project";
-import { CreateProjectSheet } from "./_components/create-project-sheet";
+import { CreateProjectDialog } from "./_components/create-project-dialog";
 import { ProjectCard } from "./_components/project-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Database, LogOut, User } from "lucide-react";
@@ -43,7 +43,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <CreateProjectSheet />
+            <CreateProjectDialog />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -113,7 +113,7 @@ export default function Dashboard() {
               Create your first project to start managing your database schemas
               and queries directly from the Backplane.
             </p>
-            <CreateProjectSheet />
+            <CreateProjectDialog />
           </div>
         )}
       </div>
