@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
+    "@liveblocks/node": "^3.13.2",
     "@prisma/client": "5.22.0",
     "better-auth": "^1.4.13",
     "elysia": "latest",

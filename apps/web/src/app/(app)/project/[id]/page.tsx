@@ -26,25 +26,19 @@ import {
   ChevronRight,
   Search,
   Database,
-  Table as TableIcon,
-  Columns,
-  Key,
   LayoutGrid,
   Settings,
   ListRestart,
-  Loader2,
-  Eye,
-  EyeOff,
   Terminal,
   LogOut,
   User,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DbSchemaGraph, DbSchemaGraphSchema } from "@/lib/schemas/dbGraph";
 import { AddColumnDialog } from "./_components/add-column-dialog";
 import { ViewIndexesDialog } from "./_components/view-indexes-dialog";
 import { Badge } from "@/components/ui/badge";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useApplySchemaChanges } from "@/hooks/use-schema";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -61,19 +55,52 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ColumnDefinition, PendingChange } from "@/lib/types";
+import type { ColumnDefinition, PendingChange, TableData } from "@/lib/types";
 import { SchemaTreeItem } from "./_components/schema-tree-item";
 import EditColumnSheet from "./_components/edit-column-sheet";
-import { TableData } from "../../../../lib/types";
 import DeleteAllDialog from "./_components/delete-all-dialog";
 import { useUndoState } from "@/hooks/use-undo-state";
 
-export default function ProjectView() {
-  const { id } = useParams() as { id: string };
-  const router = useRouter();
-  const { data: project, isLoading, error } = useProject(id);
+import {
+  RoomProvider,
+  useMyPresence,
+  useStorage,
+  useMutation,
+  useBroadcastEvent,
+  useEventListener,
+} from "@/lib/liveblocks";
 
+import { ShareDialog } from "./_components/share-dialog";
+import { CollaborativeCursors } from "./_components/collaborative-cursors";
+
+type Presence = {
+  cursor: { x: number; y: number } | null;
+  user: { name: string; email: string; avatar: string };
+};
+
+type Storage = {
+  pendingChanges: PendingChange[];
+};
+
+function ProjectViewInner({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const { data: project, isLoading, error } = useProject(projectId);
   const { data: session } = authClient.useSession();
+
+  const [myPresence, updateMyPresence] = useMyPresence();
+  const broadcast = useBroadcastEvent();
+
+  useEventListener(({ event }) => {
+    if (event.type === "SCHEMA_PUBLISHED") {
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-indexes", projectId],
+      });
+      toast.info("Schema updated by another user");
+    }
+  });
+
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTable, setSelectedTable] = useState<{
@@ -88,35 +115,63 @@ export default function ProjectView() {
     name: string;
   } | null>(null);
 
-  // console.log("ProjectID: ", id);
-  // console.log(project);
-
-  // const [pendingChanges, setPendingChanges] = useLocalStorage<PendingChange[]>(
-  //   `${id}.changes`,
-  //   [],
-  // );
   const [hiddenTableIds, setHiddenTableIds] = useState<Set<string>>(new Set());
   const toggleTableVisibility = useCallback((nodeId: string) => {
     setHiddenTableIds((prev) => {
       const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
+      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
       return next;
     });
   }, []);
 
+  // Local undo state (fallback + history)
   const {
-    state: pendingChanges,
-    setState: setPendingChanges,
+    state: localPendingChanges,
+    setState: setLocalPendingChanges,
     undo,
     redo,
     canUndo,
     canRedo,
     clearHistory,
-  } = useUndoState<PendingChange[]>(`${id}.changes`, []);
+  } = useUndoState<PendingChange[]>(`${projectId}.changes`, []);
+
+  const livePendingChanges = useStorage<PendingChange[]>(
+    (root) => root.pendingChanges,
+  );
+
+  const setLivePendingChanges = useMutation(
+    ({ storage }, next: PendingChange[]) => {
+      storage.set("pendingChanges", next);
+    },
+    [],
+  );
+
+  // Use live if available, else fallback to local
+  const pendingChanges = livePendingChanges ?? localPendingChanges;
+
+  // Unified setter updates both (so local history still works)
+  const setPendingChanges = useCallback(
+    (
+      changes: PendingChange[] | ((prev: PendingChange[]) => PendingChange[]),
+    ) => {
+      const next =
+        typeof changes === "function" ? changes(pendingChanges) : changes;
+
+      // If live storage is ready, update it
+      if (livePendingChanges !== undefined) {
+        setLivePendingChanges(next);
+      }
+
+      // Always update local (undo/redo + offline fallback)
+      setLocalPendingChanges(next);
+    },
+    [
+      pendingChanges,
+      livePendingChanges,
+      setLivePendingChanges,
+      setLocalPendingChanges,
+    ],
+  );
 
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -124,8 +179,10 @@ export default function ProjectView() {
   const [columnSheetOpen, setColumnSheetOpen] = useState(false);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false);
   const [isDiscardAllOpen, setIsDiscardAllOpen] = useState(false);
+  const [isMockDialogOpen, setIsMockDialogOpen] = useState(false);
 
   const [removeID, setRemoveID] = useState("");
+
   const [columnInfo, setColumnInfo] = useState<{
     table: TableData;
     column: ColumnDefinition;
@@ -141,10 +198,8 @@ export default function ProjectView() {
     column: { name: "", type: "", nullable: false },
   });
 
-  const mutateSchema = useApplySchemaChanges(id);
+  const mutateSchema = useApplySchemaChanges(projectId);
   const queryClient = useQueryClient();
-
-  const [isMockDialogOpen, setIsMockDialogOpen] = useState(false);
 
   const mergedSchema = useMemo(() => {
     if (!project?.schemaSnapshot) return null;
@@ -226,74 +281,57 @@ export default function ProjectView() {
           (n) => n.schema === change.schema && n.name === change.table,
         );
         if (node) {
-          const column = node.columns.find(
-            (n) => n.name === change.oldColumn?.name,
+          const col = node.columns.find(
+            (c) => c.name === change.oldColumn?.name,
           );
-          if (column) {
-            column.name = change.column.name;
-            column.nullable = change.column.nullable;
-            column.default = change.column.defaultValue ?? null;
+          if (col) {
+            col.name = change.column.name;
+            col.nullable = change.column.nullable;
+            col.default = change.column.defaultValue ?? null;
 
             node.primaryKey = node.primaryKey.map((s) =>
-              s === change.oldColumn?.name ? column.name : s,
+              s === change.oldColumn?.name ? col.name : s,
             );
             // @ts-ignore
-            column.isPending = true;
+            col.isPending = true;
           }
-          // console.log("Mutated columns: ", column);
-          // console.log("Previous name: ", change.schema);
         }
       } else if (change.type === "DELETE_COLUMN" && change.column) {
         const node = clonedData.nodes.find(
           (n) => n.schema === change.schema && n.name === change.table,
         );
         if (node) {
-          node.columns = node?.columns.filter(
+          node.columns = node.columns.filter(
             (c) => c.name !== change.column?.name,
           );
-
           deletedColumns.add(change.column?.name);
         }
       }
     });
 
-    const freqSchema = new Set();
-    clonedData.nodes.forEach((node) => {
-      freqSchema.add(node.schema);
-    });
-
-    clonedData.schemas = clonedData.schemas.filter((schema) =>
-      freqSchema.has(schema),
-    );
+    const freqSchema = new Set<string>();
+    clonedData.nodes.forEach((node) => freqSchema.add(node.schema));
+    clonedData.schemas = clonedData.schemas.filter((s) => freqSchema.has(s));
 
     return clonedData;
   }, [project, pendingChanges]);
 
   const graphSchema = useMemo(() => {
     if (!mergedSchema) return null;
-
     if (hiddenTableIds.size === 0) return mergedSchema;
 
-    const filtered = { ...mergedSchema };
-
-    // Filter nodes
-    filtered.nodes = mergedSchema.nodes.filter(
-      (node) => !hiddenTableIds.has(node.id),
-    );
-
-    filtered.edges = mergedSchema.edges.filter(
-      (edge) =>
-        !hiddenTableIds.has(edge.source) && !hiddenTableIds.has(edge.target),
-    );
-
-    return filtered;
+    return {
+      ...mergedSchema,
+      nodes: mergedSchema.nodes.filter((n) => !hiddenTableIds.has(n.id)),
+      edges: mergedSchema.edges.filter(
+        (e) => !hiddenTableIds.has(e.source) && !hiddenTableIds.has(e.target),
+      ),
+    };
   }, [mergedSchema, hiddenTableIds]);
-  // MODIFIED END
 
   const handleQueueColumnAdd = useCallback(
     (colDef: ColumnDefinition) => {
       if (!selectedTable) return;
-
       setPendingChanges((prev) => [
         ...prev,
         {
@@ -317,15 +355,17 @@ export default function ProjectView() {
 
   const handlePublish = async () => {
     setIsPublishing(true);
-
     const toastId = toast.loading("Applying schema changes...");
 
     try {
       await mutateSchema.mutateAsync(pendingChanges);
-      await queryClient.invalidateQueries({ queryKey: ["project", id] });
-      await queryClient.invalidateQueries({ queryKey: ["schema-indexes", id] });
+      await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["schema-indexes", projectId],
+      });
       setPendingChanges([]);
       clearHistory();
+      broadcast({ type: "SCHEMA_PUBLISHED" });
       toast.dismiss(toastId);
       toast.success("Schema updated successfully");
       setIsReviewOpen(false);
@@ -381,11 +421,7 @@ export default function ProjectView() {
     } else {
       setPendingChanges((prev) => [
         ...prev,
-        {
-          type: "DROP_TABLE",
-          schema,
-          table,
-        },
+        { type: "DROP_TABLE", schema, table },
       ]);
       toast.warning(`Table "${table}" marked for deletion`);
     }
@@ -396,7 +432,7 @@ export default function ProjectView() {
     try {
       await authClient.signOut();
       router.push("/sign-in");
-    } catch (error) {
+    } catch {
       toast.error("Failed to sign out");
     }
   };
@@ -409,57 +445,45 @@ export default function ProjectView() {
   const handleColumnUpdate = (
     name: string,
     schema: string,
-    column: ColumnDefinition,
+    col: ColumnDefinition,
   ) => {
-    setPendingChanges([
-      ...pendingChanges,
+    setPendingChanges((prev) => [
+      ...prev,
       {
         type: "UPDATE_COLUMN",
         table: name,
         schema,
-        column,
+        column: col,
         oldColumn: columnInfo.column,
       },
     ]);
-    // console.log(columnInfo);
   };
 
   const handleColumnDelete = (
-    table: string,
+    tableName: string,
     schema: string,
-    column: ColumnDefinition,
+    col: ColumnDefinition,
   ) => {
-    setPendingChanges([
-      ...pendingChanges,
-      {
-        type: "DELETE_COLUMN",
-        table: table,
-        schema,
-        column,
-      },
+    setPendingChanges((prev) => [
+      ...prev,
+      { type: "DELETE_COLUMN", table: tableName, schema, column: col },
     ]);
-  };
-
-  const handleDiscardClick = () => {
-    setIsDiscardAllOpen(true);
   };
 
   const filteredNodes = useMemo(() => {
     if (!mergedSchema) return [];
     if (!searchTerm) return mergedSchema.nodes;
+    const q = searchTerm.toLowerCase();
     return mergedSchema.nodes.filter(
       (n) =>
-        n.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        n.schema.toLowerCase().includes(searchTerm.toLowerCase()),
+        n.name.toLowerCase().includes(q) || n.schema.toLowerCase().includes(q),
     );
   }, [searchTerm, mergedSchema]);
 
   const nodesBySchema = useMemo(() => {
     const groups: Record<string, typeof filteredNodes> = {};
-    if (!filteredNodes.length) return [];
     filteredNodes.forEach((node) => {
-      if (!groups[node.schema]) groups[node.schema] = [];
-      groups[node.schema].push(node);
+      (groups[node.schema] ??= []).push(node);
     });
     return groups;
   }, [filteredNodes]);
@@ -467,9 +491,7 @@ export default function ProjectView() {
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -518,7 +540,6 @@ export default function ProjectView() {
               />
             </div>
           </SidebarHeader>
-
           <SidebarContent className="px-2 py-4">
             <SidebarGroup>
               <SidebarGroupLabel className="text-[10px] font-bold tracking-widest text-muted-foreground/50 mb-1">
@@ -554,7 +575,6 @@ export default function ProjectView() {
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
-
           <div className="mt-auto p-4 border-t border-border/40">
             <Button
               variant="ghost"
@@ -562,13 +582,11 @@ export default function ProjectView() {
               className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground px-2"
               onClick={() => router.push("/dashboard")}
             >
-              <ArrowLeft className="size-4" />
-              Back to Projects
+              <ArrowLeft className="size-4">Back to Projects</ArrowLeft>
             </Button>
           </div>
           <SidebarRail />
         </Sidebar>
-
         <SidebarInset className="flex flex-col h-full w-full overflow-hidden bg-muted/5">
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4 z-10 shadow-sm">
             <SidebarTrigger className="-ml-1 h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted" />
@@ -632,6 +650,9 @@ export default function ProjectView() {
                   variant="ghost"
                   size="icon-sm"
                   className="h-7 w-7 rounded-md hover:bg-muted"
+                  onClick={() => {
+                    setIsShareDialogOpen(true);
+                  }}
                 >
                   <Settings className="size-3.5 text-muted-foreground" />
                 </Button>
@@ -678,7 +699,6 @@ export default function ProjectView() {
               </DropdownMenu>
             </div>
           </header>
-
           <div className="flex-1 overflow-hidden relative bg-muted/5">
             <div className="absolute inset-0">
               {graphSchema && (
@@ -718,19 +738,22 @@ export default function ProjectView() {
           onOpenChange={setIsReviewOpen}
           changes={pendingChanges}
           onRemoveChange={handleRemoveChange}
-          handleDiscardClick={handleDiscardClick}
+          handleDiscardClick={() => setIsDiscardAllOpen(true)}
           onPublish={handlePublish}
           isPublishing={isPublishing}
         />
+
         <RemoveTableDialog
           open={isRemoveOpen}
           setOpen={setIsRemoveOpen}
           handleDeleteTable={handleDeleteTable}
         />
+
         <MockSessionDialog
           open={isMockDialogOpen}
           onOpenChange={setIsMockDialogOpen}
         />
+
         <EditColumnSheet
           columnInfo={columnInfo}
           sheetOpen={columnSheetOpen}
@@ -744,7 +767,40 @@ export default function ProjectView() {
           setOpen={setIsDiscardAllOpen}
           onDeleteAll={handleDiscardAll}
         />
+
+        <ShareDialog
+          open={isShareDialogOpen}
+          onOpenChange={setIsShareDialogOpen}
+          projectId={projectId}
+        />
       </div>
     </SidebarProvider>
+  );
+}
+
+export default function ProjectView() {
+  const { id } = useParams() as { id: string };
+  const { data: session } = authClient.useSession();
+
+  if (!session?.user) return null;
+
+  return (
+    <RoomProvider
+      id={`project:${id}`}
+      initialPresence={{
+        cursor: null,
+        user: {
+          name: session.user.name || "Anonymous",
+          email: session.user.email || "",
+          avatar: session.user.image || "",
+        },
+      }}
+      initialStorage={{
+        pendingChanges: [],
+        nodePositions: {},
+      }}
+    >
+      <ProjectViewInner projectId={id} />
+    </RoomProvider>
   );
 }
